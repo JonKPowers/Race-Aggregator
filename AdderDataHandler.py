@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import datetime
 
-import db_handler_persistent as dbh
+import db_handler as dbh
 
 class AdderDataHandler:
     # The AdderDBHandler class is intended to provide a general interface to work with the database in the process

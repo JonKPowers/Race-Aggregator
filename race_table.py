@@ -1,5 +1,5 @@
 import logging
-import db_handler_persistent as dbh
+import db_handler as dbh
 
 import numpy as np
 import pandas as pd
@@ -7,7 +7,7 @@ import datetime
 import re
 from progress.bar import Bar
 
-from aggregation_AdderDataHandler import AdderDataHandler
+from AdderDataHandler import AdderDataHandler
 from aggregation_RaceProcessor import RaceProcessor
 
 

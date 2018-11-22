@@ -1,6 +1,6 @@
 import logging
 from aggregation_RaceProcessor import RaceProcessor
-from aggregation_AdderDataHandler import AdderDataHandler
+from AdderDataHandler import AdderDataHandler
 
 from progress.bar import Bar
 import numpy as np

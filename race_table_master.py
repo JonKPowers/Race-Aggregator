@@ -1,11 +1,11 @@
-from race_table_refactor_new import AggRacesDataHandler
-from race_table_refactor_new import RaceAggregator
+from race_table import AggRacesDataHandler
+from race_table import RaceAggregator
 
 # Constants
-from aggregation_datapack import DataPack
-from constant_aggregated_races_table_structure import CONSOLIDATED_TABLE_STRUCTURE
-from constant_aggregated_races_table_to_index_mappings import TABLE_TO_INDEX_MAPPINGS
-from constant_aggregated_races_unique import UNIQUE
+from datapack import DataPack
+from constants.constant_aggregated_races_table_structure import CONSOLIDATED_TABLE_STRUCTURE
+from constants.constant_aggregated_races_table_to_index_mappings import TABLE_TO_INDEX_MAPPINGS
+from constants.constant_aggregated_races_unique import UNIQUE
 data_pack = DataPack(CONSOLIDATED_TABLE_STRUCTURE=CONSOLIDATED_TABLE_STRUCTURE,
                      TABLE_TO_INDEX_MAPPINGS=TABLE_TO_INDEX_MAPPINGS,
                      UNIQUE=UNIQUE)
