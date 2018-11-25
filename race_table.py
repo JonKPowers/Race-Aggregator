@@ -150,7 +150,7 @@ class RaceAggregator(RaceProcessor):
 
         with open(f'logs/unfixed_data_{self.table} {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}.txt', 'w') as file:
             for key in self.unfixed_data.keys():
-                file.write(f'{key}:\t')
+                file.write(f'\n**********\n{key}:\t')
                 for item in self.unfixed_data[key]:
                     file.write(f'{item}, ')
                 file.write('\n')

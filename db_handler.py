@@ -1,14 +1,14 @@
 import logging
-import _mysql
+import MySQLdb
 import re
 
-logging.basicConfig(filename='db_handler.log', filemode='w', level=logging.DEBUG)
+logging.basicConfig(filename='db_handler.log', filemode='w', level=logging.INFO)
 
 
 class QueryDB:
 
     def connect(self):
-        if not self.connection: self.connection = pymysql.connect(host='localhost',
+        if not self.connection: self.connection = MySQLdb.connect(host='localhost',
                                                                   user=self.user,
                                                                   password=self.password)
 
@@ -139,7 +139,7 @@ class QueryDB:
         logging.info(f'Creating table {table_name}:\n\t{sql}')
         try:
             cursor.execute(sql)
-        except pymysql.err.ProgrammingError as e:
+        except MySQLdb.ProgrammingError as e:
             print(f'Error creating table {table_name}:\n\t{sql}\n\t{e}')
             logging.info(f'Error creating table{table_name}:\n\t{sql}')
         db.commit()
@@ -157,8 +157,11 @@ class QueryDB:
 
             try:
                 cursor.execute(sql)
-            except (pymysql.err.ProgrammingError, pymysql.err.IntegrityError) as e:
-                if not re.search(r'Duplicate entry', repr(e)):
+            except (MySQLdb.ProgrammingError, MySQLdb.IntegrityError) as e:
+                if re.search(r'Duplicate entry', repr(e)):
+                    logging.debug(f'Error adding entry: \n\t{e}')
+                    logging.debug(f'\t{i+1} of {len(table_data)}: {sql}')
+                else:
                     logging.info(f'Error adding entry: \n\t{e}')
                     logging.info(f'\t{i+1} of {len(table_data)}: {sql}')
         db.commit()
@@ -179,7 +182,7 @@ class QueryDB:
         if initialize_db: self.initialize_db()
 
     def __enter__(self):
-        self.connection = pymysql.connect(
+        self.connection = MySQLdb.connect(
             host='localhost',
             user=self.user,
             password=self.password)
