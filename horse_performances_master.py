@@ -21,6 +21,7 @@ data_pack = DataPack(CONSOLIDATED_TABLE_STRUCTURE = CONSOLIDATED_TABLE_STRUCTURE
 # FOR DEVELOPMENT PURPOSES: Limit the number of records we pull from the databases.
 # todo REMOVE FOR PRODUCTION
 data_limit = ''
+source_database = 'horses_test'
 
 # Generate the data handler for the consolidated races aggregated db
 consolidated_races_db_handler= hp.AdderDataHandler('horses_consolidated_races', 'horses_consolidated_races',
@@ -33,14 +34,14 @@ consolidated_performances_db_handler = hp.AdderDataHandler('horses_consolidated_
 
 
 # Build up data handlers for the data sources, spin up the aggregators, and fire them up.
-race_results_db_handler = hp.PPAdderDataHandler('horses_data', 'race_horse_info', data_pack,
+race_results_db_handler = hp.PPAdderDataHandler(source_database, 'race_horse_info', data_pack,
                                               include_horse=True, other=data_limit)
 race_results_adder = hp.PPRaceProcessor(race_results_db_handler, consolidated_performances_db_handler,
                                         consolidated_races_db_handler, include_horse=True, verbose=False)
 race_results_adder.add_to_consolidated_data()
 
 
-past_performances_db_handler = hp.PPAdderDataHandler('horses_data', 'horse_pps', data_pack,
+past_performances_db_handler = hp.PPAdderDataHandler(source_database, 'horse_pps', data_pack,
                                                    include_horse=True, other=data_limit)
 past_performances_adder = hp.PPRaceProcessor(past_performances_db_handler, consolidated_performances_db_handler,
                                              consolidated_races_db_handler, include_horse=True, verbose=False)

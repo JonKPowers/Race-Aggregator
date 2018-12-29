@@ -191,3 +191,17 @@ class AdderDataHandler:
         # NOTE: Old code had this in it, and we probably do need to cover datetimes, but this doesn't seem like
         # the right approach:
         #elif type(item) !=str and not isinstance(item, datetime.date) and np.isnan(item): return True
+
+    def get_table_structure(self):
+        table_structure = {key: self.constants.CONSOLIDATED_TABLE_STRUCTURE[key][self.table_index] for key in self.constants.CONSOLIDATED_TABLE_STRUCTURE.keys()}
+        return table_structure
+
+    def get_value(self, field, race_id_sql):
+        sql_query = self.db.generate_query(self.table, [field], where=race_id_sql)
+        db_data = self.db.query_db(sql_query)[0][0]
+        return db_data
+
+    def get_values(self, fields, race_id_sql):
+        sql_query = self.db.generate_query(self.table, fields, where=race_id_sql)
+        db_data = self.db.query_db(sql_query)[0]
+        return db_data

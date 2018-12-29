@@ -19,10 +19,10 @@ class QueryDB:
     def query_db(self, sql_query, return_col_names=False):
         cursor = self.connection.cursor()
         self._use_db(self.connection, cursor)
-        print('Sending SQL query')
+        if self.verbose: print('Sending SQL query')
         if self.verbose: print(sql_query)
         cursor.execute(sql_query)
-        print('Processing response')
+        if self.verbose: print('Processing response')
         results = list(cursor)
         results_cols = [item[0] for item in cursor.description]
         return (results, results_cols) if return_col_names else results

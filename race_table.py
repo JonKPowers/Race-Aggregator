@@ -10,6 +10,8 @@ from progress.bar import Bar
 from AdderDataHandler import AdderDataHandler
 from aggregation_RaceProcessor import RaceProcessor
 
+from fixer_distance import FixerDistance
+
 
 class AggRacesDataHandler(AdderDataHandler):
     def build_dataframe(self):
@@ -66,8 +68,19 @@ class RaceAggregator(RaceProcessor):
         current_race_num = None
         current_distance = None
 
+        # State variables to hold data being processed
+
+
         # Set up dict to track the unresolvable issues that were found
         self.unfixed_data = {}
+
+        # Set up data fixers
+        # todo ADD THESE
+        self.fixer_distance = FixerDistance('distance', self.db, self.consolidated_db)
+
+        self.fixers = {
+            'distance': self.fixer_distance,
+        }
 
     def add_to_consolidated_data(self):
         # Setup progress bar
@@ -124,11 +137,11 @@ class RaceAggregator(RaceProcessor):
                                                             self.get_current_race_id(as_sql=True))
                 else:   # Resolve partial data
                         # Generate boolean masks for what data is missing in consolidated and new data
-                    new_row_data = row_data[columns_to_check]
-                    consolidated_data = self.consolidated_db.data.loc[self.get_current_race_id(include_horse=self.include_horse), columns_to_check]
+                    self.new_row_data = row_data[columns_to_check]
+                    self.consolidated_row_data = self.consolidated_db.data.loc[self.get_current_race_id(include_horse=self.include_horse), columns_to_check]
 
-                    missing_row_data = [self.db.is_blank(item) for item in new_row_data]
-                    missing_consolidated_data = [self.db.is_blank(item) for item in consolidated_data]
+                    missing_row_data = [self.db.is_blank(item) for item in self.new_row_data]
+                    missing_consolidated_data = [self.db.is_blank(item) for item in self.consolidated_row_data]
 
                     # Check to make sure the row sizes match, which we expect
                     # TO-DO TAKE THIS OUT FOR PRODUCTION
@@ -137,7 +150,7 @@ class RaceAggregator(RaceProcessor):
                     # If there's an entry that already has data in it, compare each data entry, see where
                     # discrepancies are, resolve them, and then update the consolidated db entry.
                     self.resolve_data(zip(missing_row_data, missing_consolidated_data),
-                                      zip(new_row_data, consolidated_data),
+                                      zip(self.new_row_data, self.consolidated_row_data),
                                       columns_to_check)
                 # If some of the non-race_id fields are not blank, we have to resolve those against our new data
 
@@ -207,7 +220,7 @@ class RaceAggregator(RaceProcessor):
             # todo N and A combos, S and N, R and N
 
             else:
-                if self.verbose: print_mismatch()
+                if self.verbose: print_mismatch(pause=True)
                 add_to_unfixed_data()
 
         def fix_surface():
@@ -231,7 +244,9 @@ class RaceAggregator(RaceProcessor):
 
         # Run the appropriate discrepancy resolver depending on the column involved.
         if column == 'distance':
-            print_mismatch(pause=True)
+            self.fixers[column].fix_discrepancy(new_data, existing_data, self.current_race_id,
+                                                (self.new_row_data, self.consolidated_row_data),
+                                                current_race_id_sql=self.get_current_race_id(as_sql=True))
         elif column == 'race_type':
             fix_race_type()
         elif column == 'surface':
@@ -249,6 +264,7 @@ class RaceAggregator(RaceProcessor):
         elif column == 'breed': add_to_unfixed_data()
         elif column == 'race_conditions_1_not_won_limit': add_to_unfixed_data()
         elif column == 'race_conditions_1_time_limit': add_to_unfixed_data()
+        elif column == 'standard_weight': add_to_unfixed_data()
 
         else:
             print('Other type of discrepancy')
