@@ -3,4 +3,5 @@ __pycache__/
 constants/__pycache__/
 *.log
 logs/
+venv/
 

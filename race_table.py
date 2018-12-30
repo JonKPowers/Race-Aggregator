@@ -265,6 +265,7 @@ class RaceAggregator(RaceProcessor):
         elif column == 'race_conditions_1_not_won_limit': add_to_unfixed_data()
         elif column == 'race_conditions_1_time_limit': add_to_unfixed_data()
         elif column == 'standard_weight': add_to_unfixed_data()
+        elif column == 'chute_start': add_to_unfixed_data()
 
         else:
             print('Other type of discrepancy')
