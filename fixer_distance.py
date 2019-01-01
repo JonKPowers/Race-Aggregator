@@ -21,48 +21,85 @@ class FixerDistance(Fixer):
 
             self.set_race_conditions()
 
+        # Check whether db has off turf and off turf dist change flag set
+        self.off_turf_dist_change = self.consolidated_db.get_value('off_turf_dist_change',
+                                                                   self.current_race_id_sql)
+        self.off_turf_flag = self.consolidated_db.get_value('off_turf', self.current_race_id_sql)
+
         # Print out race information
         if full_info:
             self.new_row_data, self.consolidated_row_data = full_info
-            self.print_races_info()
+            if self.verbose: self.print_races_info()
+
+        #todo Add in something to capture unresolved distance changes that aren't related to off_turf changes
+        # get_distance_change will return None if no off_turf distance changes are detected; use that to branch off of
 
         # Look for a potential distance change in the race conditions and report if found
-        distance_change = self.get_distance_change()
-        print(f'Race conditions distance change: {distance_change}')
-        input('Press enter to continue')
+        self.distance_change = self.get_distance_change()
+        if self.verbose: print(f'Race conditions distance change: {self.distance_change}')
+
+        # Ask whether to update the distance
+        # Will be done interactively if self.verbose == True; else automatically based on recommend_updates
+        self.recommend_updates = self.new_data == self.distance_change
+        if self.verbose:
+            print(f'\nRecommend updating to new data' if self.recommend_updates else f'\nNo update recommended')
+            if not self.recommend_updates:
+                input('Press enter to continue')
+            if self.recommend_updates:
+                update_response = input(f'Update value to {self.distance_change}? [Y/n]' ).lower()
+                if update_response != 'n' and self.distance_change is not None:
+                    self.update_value(self.column_name, self.distance_change)
+                else:
+                    print('No update made')
+                    input('Press enter to continue')
+
+                # Ask whether to update the off turf and distance change flag
+                if self.off_turf_dist_change != 1 or self.off_turf_flag != 1:
+                    print(f'\nRecommend setting off turf and off turf distance change flag')
+                    update_response = input(f'Set off turf flags for {self.current_race_id}? [Y/n] ').lower()
+                    if update_response != 'n':
+                        if self.off_turf_dist_change != 1 :self.update_value('off_turf_dist_change', '1')
+                        if self.off_turf_flag != 1: self.update_value('off_turf', '1')
+        else:
+            if self.verbose: print(f'Updating {self.current_race_id} distance')
+            self.update_value(self.column_name, self.distance_change)
+            self.update_value('off_turf_dist_change', '1')
+            self.update_value('off_turf', '1')
+
+        return self.discrepancy_resolved()
+
+        # todo add column indicating how much the distance changed if there was an off turf dist change
+
+    def discrepancy_resolved(self):
+        """Determines whether the discrepancy has been sufficiently resolved; used as return value for fix_discrepancy."""
+        # If there's a discrepancy and distance change matches the existing data, we're good.
+        if self.distance_change == self.existing_data:
+            return True
+        # If recommend_updates, i.e., if self.distance_change == self.new_data, we'll update the data and we're good
+        elif self.recommend_updates:
+            return True
+        else:
+            return False
+
+    def update_value(self, field, value):
+        self.consolidated_db.update_race_values([field], [value], self.current_race_id_sql)
 
     def print_races_info(self):
-        # Fields to examine:
-        review_fields = ['distance', 'off_turf_dist_change']
-        source_fields = [self.source_table_structure[field] for field in review_fields]
-        consolidated_fields = [field for field in review_fields]
-        # Data from source and consolidated tables
-
-        def get_value(value_dict, field):
-            if field:
-                return value_dict[field]
-            else:
-                return 'None'
-
+        print('\n' + self.current_race_id)
         # Print out table with the review data
         table = PrettyTable(['field', 'New data', 'Existing data'])
         table.add_row([self.column_name, self.new_data, self.existing_data])
         print(f'\n{table}')
         del table
 
-        self.off_turf_dist_change = self.consolidated_db.get_value('off_turf_dist_change',
-                                                                   self.current_race_id_sql)
-
         if self.off_turf_dist_change:
             print(f'Off turf distance change flag: {self.off_turf_dist_change}')
         else:
             print(f'No off turf distance flag found')
 
-
         # Print race conditions
-
-        print(f'\nSource race conditions: {self.current_source_race_conditions}')
-        print(f'Consolidated race conditions: {self.current_consolidated_race_conditions}')
+        print(f'\nSource race conditions:\n{self.current_source_race_conditions}')
+        print(f'\nConsolidated race conditions:\n{self.current_consolidated_race_conditions}')
 
     def set_race_conditions(self):
         race_condition_fields = ['race_conditions_text_1', 'race_conditions_text_2', 'race_conditions_text_3',
@@ -111,11 +148,12 @@ class FixerDistance(Fixer):
         if source_distance_change and consolidated_distance_change:
             if source_distance_change == consolidated_distance_change:
                 return source_distance_change
-            else:
+            elif self.verbose:
                 print(f'Source and existing conditions show different distance changes.')
                 print(f'\tSource: {source_distance_change}\n\tConsolidated:{consolidated_distance_change}')
         elif source_distance_change is None is consolidated_distance_change:
-            print(f'Distance change not found in source or consolidated')
+            if self.verbose: print(f'Distance change not found in source or consolidated')
+            return None
         elif source_distance_change is None:
             return consolidated_distance_change
         elif consolidated_distance_change is None:
@@ -156,6 +194,8 @@ class FixerDistance(Fixer):
                 fractional_dist_in_yards = 0
             elif re.search(r'70|seventy', fractional_part):
                 fractional_dist_in_yards = 70
+            elif re.search(r'40|forty', fractional_part):
+                fractional_dist_in_yards = 40
             elif re.search(r'sixteenth|16', fractional_part):
                 fractional_dist_in_yards = 110
             elif re.search(r'eighth|8', fractional_part):
@@ -182,36 +222,10 @@ class FixerDistance(Fixer):
                 print(f'Error finding fractional furlong distance for {fractional_part}')
                 input('Press enter to continue')
             return furlong_dist_in_yards + fractional_dist_in_yards
-        #
-        #
-        #
-        #
-        #
-        # number_string = distance_match.group(2)
-        # number = num_conversions[number_string]
-        # units = distance_match.group(3)
-        # unit_distance = None
-        # distance = None
-        #
-        # if units in ['furlong', 'furlongs']:
-        #     unit_distance = 220
-        # elif units in ['mile', 'miles']:
-        #     unit_distance = 1760
-        # else:
-        #     print(f'Unrecognized unit: {units}')
-        #     input('Press enter to continue')
-        #
-        # try:
-        #     distance = number * unit_distance
-        # except TypeError as e:
-        #     print(f'Error converting distance to int: {e}')
-        #     input('Press enter to continue')
-        #
-        # return distance
 
     def extract_changed_distance(self, race_conditions):
         triggers_string = r'(if deemed inadvisable|if necessary|if deemed inadvisable|' \
-                          r'if management deems it necessary|if the stewards consider it|if stewards consider it|' \
+                          r'if management deems it|if the stewards consider it|if stewards consider it|' \
                           r'if the management considers it|if management considers it|if transferred to|' \
                           r'if this race is taken|if the race is taken|in the event this race|if this race is taken|' \
                           r'if this race comes off)'
@@ -220,8 +234,7 @@ class FixerDistance(Fixer):
         multipart_search_string = re.compile(r'{}.+{}'.format(triggers_string, multipart_string))
         multipart_result = re.search(multipart_search_string, race_conditions.lower())
         if multipart_result:
-            print(f'Multipart race condition found: {race_conditions}')
-            input('Press enter to continue')
+            if self.verbose: print(f'Multipart race condition found: \n{race_conditions}')
             return None
 
         numbers = r'([1-9]|one|two|three|four|five|six|seven|eight|nine|ten)'
@@ -234,7 +247,8 @@ class FixerDistance(Fixer):
             return ('furlong', furlong_result)
 
         mile_string = r'(one mile|onemile|1mile|1 mile)'
-        fractional_mile_string = r'(one sixteenth|1 sixteenth|1/16|one eighth|1 eighth|1/8|seventy yards|70 yards)'
+        fractional_mile_string = r'(one sixteenth|1 sixteenth|1/16|one eighth|1 eighth|1/8|' \
+                                 r'seventy yards|70 yards|forty yards|40 yards)'
         full_mile_string=r'{}( ?and {})?'.format(mile_string, fractional_mile_string)
         mile_search_string = re.compile(r'{}.+?{}'.format(triggers_string, full_mile_string))
 
@@ -246,6 +260,9 @@ class FixerDistance(Fixer):
         # Multipart phrases
         #   "If Deemed inadvisable by management to run this race over the turf course; it will be run on the main track at One Mile. If the race is for two year olds; it will be run at Seven Furlongs",
         #   'If the Stewards consider it inadvisable to run this race on the turf course; Two - Year - Old races will be run at Seven Furlongs and races for Three - Year - Olds and Up will be run at One Mileand One Eighth on the main track.',
+
+        # todo chute-related phrases:
+        # 'One mile out of the chute.'
 
 
 

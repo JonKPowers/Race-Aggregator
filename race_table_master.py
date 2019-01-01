@@ -12,7 +12,7 @@ data_pack = DataPack(CONSOLIDATED_TABLE_STRUCTURE=CONSOLIDATED_TABLE_STRUCTURE,
 
 # SQL results limit to speed up debugging cycle during development
 # todo DELETE FOR PRODUCTION
-data_limit = 'LIMIT 20000'
+data_limit = ''
 source_database = 'horses_test'
 
 # Spin up the data handlers for the race aggregation tables
@@ -24,7 +24,7 @@ consolidated_races_data_handler = AggRacesDataHandler('horses_consolidated_races
 race_info_data_handler = AggRacesDataHandler(source_database, 'race_info',
                                              data_pack, include_horse=False, other=data_limit)
 race_info_adder = RaceAggregator(race_info_data_handler, consolidated_races_data_handler, include_horse=False)
-# race_info_adder.add_to_consolidated_data()
+race_info_adder.add_to_consolidated_data()
 
 # Spin up data handler and aggregator for the past performances table. Fire it up.
 horse_pps_data_handler = AggRacesDataHandler(source_database, 'horse_pps',

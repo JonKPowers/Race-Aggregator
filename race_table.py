@@ -244,9 +244,12 @@ class RaceAggregator(RaceProcessor):
 
         # Run the appropriate discrepancy resolver depending on the column involved.
         if column == 'distance':
-            self.fixers[column].fix_discrepancy(new_data, existing_data, self.current_race_id,
-                                                (self.new_row_data, self.consolidated_row_data),
-                                                current_race_id_sql=self.get_current_race_id(as_sql=True))
+            discrepancy_resolved = self.fixers[column].fix_discrepancy(new_data, existing_data, self.current_race_id,
+                                                                       (self.new_row_data, self.consolidated_row_data),
+                                                                       current_race_id_sql=self.get_current_race_id(as_sql=True))
+            if not discrepancy_resolved:
+                add_to_unfixed_data()
+            # todo Add signal from fix_discrepancy if issue is not resolved so add_to_unfixed_data() can be called.
         elif column == 'race_type':
             fix_race_type()
         elif column == 'surface':
@@ -266,6 +269,19 @@ class RaceAggregator(RaceProcessor):
         elif column == 'race_conditions_1_time_limit': add_to_unfixed_data()
         elif column == 'standard_weight': add_to_unfixed_data()
         elif column == 'chute_start': add_to_unfixed_data()
+        elif column == 'off_turf': add_to_unfixed_data()
+        elif column == 'race_conditions_1_claim_start_req_price': add_to_unfixed_data()
+        elif column == 'race_conditions_1_claim_start_time_limit': add_to_unfixed_data()
+        elif column == 'race_conditions_1_money_limit': add_to_unfixed_data()
+        elif column == 'race_conditions_1_excluded_claiming': add_to_unfixed_data()
+        elif column == 'race_conditions_1_excluded_maiden': add_to_unfixed_data()
+        elif column == 'race_conditions_1_excluded_starter': add_to_unfixed_data()
+        elif column == 'race_conditions_1_excluded_statebred_allowance': add_to_unfixed_data()
+        elif column == 'race_conditions_2_start_time_limit': add_to_unfixed_data()
+        elif column == 'race_conditions_2_time_limit': add_to_unfixed_data()
+        elif column == 'chute_start': add_to_unfixed_data()
+
+
 
         else:
             print('Other type of discrepancy')
