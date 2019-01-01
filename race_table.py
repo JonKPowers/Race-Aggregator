@@ -11,6 +11,8 @@ from AdderDataHandler import AdderDataHandler
 from aggregation_RaceProcessor import RaceProcessor
 
 from fixer_distance import FixerDistance
+from fixer_purse import FixerPurse
+from fixer_race_type import FixerRaceType
 
 
 class AggRacesDataHandler(AdderDataHandler):
@@ -76,10 +78,11 @@ class RaceAggregator(RaceProcessor):
 
         # Set up data fixers
         # todo ADD THESE
-        self.fixer_distance = FixerDistance('distance', self.db, self.consolidated_db)
 
         self.fixers = {
-            'distance': self.fixer_distance,
+            'distance': FixerDistance('distance', self.db, self.consolidated_db),
+            'purse': FixerPurse('purse', self.db, self.consolidated_db),
+            'race_type': FixerRaceType('race_type', self.db, self.consolidated_db),
         }
 
     def add_to_consolidated_data(self):
@@ -194,35 +197,6 @@ class RaceAggregator(RaceProcessor):
             self.unfixed_data['distance'].append(self.current_race_id)
             # self.consolidated_db.delete_entry(self.get_current_race_id(as_tuple=True))
 
-        def fix_race_type():
-            # todo Change to equibase race types, which are more descriptive and varied; prefer those over race_info:
-            # fix_it_dict = {
-            #     # Format: fix_name: race_general_results_type, race_info_type, equibase_race_type, replacement_value
-            #     'SOC_fix': ['N', 'CO', 'SOC', 'SOC'],
-            #     'WCL_fix': ['N', 'C', 'WCL', 'WCL'],
-            #     'MDT_fix': ['S', 'N', 'MDT', 'MDT'],
-            #     'STR_fix': ['R', 'N', 'STR', 'STR'],
-            #     'HCP_fix': ['A', 'N', 'HCP', 'HCP'],
-            # }
-            # Types of mismatches:
-            # Race info: N. Horse PPS: C
-            # Race info: N. Horse PPS: CO
-            if (new_data in ['C', 'CO'] and existing_data == 'N') or (new_data == 'N' and existing_data in ['C', 'CO']):
-                race_set_as_claiming = existing_data in ['C', 'CO']
-                race_is_claiming_race = self.consolidated_db.data.loc[self.current_race_id, 'claiming_price_base'] != 0
-                if race_is_claiming_race and not race_set_as_claiming:
-                    if self.verbose: print('\nUpdating db to mark race as claiming race')
-                    update_to_new_data()
-                elif not race_is_claiming_race and race_set_as_claiming:
-                    if self.verbose: print('\nRace incorrectly set as claiming... fixing')
-                    update_to_new_data()
-            # todo Race info: N. Horse PPS: S
-            # todo N and A combos, S and N, R and N
-
-            else:
-                if self.verbose: print_mismatch(pause=True)
-                add_to_unfixed_data()
-
         def fix_surface():
             # Most of the surface discrepancies stem from changes from a planned turf race to dirt or all weather
             # surfaces. todo Work out a way to check whether there was a planned change that matches the observed discrepancy
@@ -249,14 +223,27 @@ class RaceAggregator(RaceProcessor):
                                                                        current_race_id_sql=self.get_current_race_id(as_sql=True))
             if not discrepancy_resolved:
                 add_to_unfixed_data()
-            # todo Add signal from fix_discrepancy if issue is not resolved so add_to_unfixed_data() can be called.
+
         elif column == 'race_type':
-            fix_race_type()
+            discrepancy_resolved = self.fixers[column].fix_discrepancy(new_data, existing_data,
+                                                                       race_id=self.current_race_id,
+                                                                       full_info=None,
+                                                                       current_race_id_sql=self.get_current_race_id(as_sql=True))
+            if not discrepancy_resolved:
+                add_to_unfixed_data()
+
         elif column == 'surface':
             fix_surface()
         elif column == 'claiming_price_base': add_to_unfixed_data()
         elif column == 'track_condition': add_to_unfixed_data()
-        elif column == 'purse': add_to_unfixed_data()
+        elif column == 'purse':
+            discrepancy_resolved = self.fixers[column].fix_discrepancy(new_data, existing_data,
+                                                                       race_id=self.current_race_id,
+                                                                       full_info=None,
+                                                                       current_race_id_sql=self.get_current_race_id(as_sql=True))
+            if not discrepancy_resolved:
+                add_to_unfixed_data()
+
         elif column in ['allowed_colts_geldings', 'allowed_mares', 'allowed_fillies', ]:
             add_to_unfixed_data()
         elif column == 'statebred_race': add_to_unfixed_data()
@@ -280,6 +267,8 @@ class RaceAggregator(RaceProcessor):
         elif column == 'race_conditions_2_start_time_limit': add_to_unfixed_data()
         elif column == 'race_conditions_2_time_limit': add_to_unfixed_data()
         elif column == 'chute_start': add_to_unfixed_data()
+        elif column == 'pps_bris_race_type': add_to_unfixed_data()
+
 
 
 

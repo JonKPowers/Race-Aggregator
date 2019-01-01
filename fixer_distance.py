@@ -7,6 +7,8 @@ class FixerDistance(Fixer):
 
     def fix_discrepancy(self, new_data, existing_data, race_id=None, full_info=None, **kwargs):
 
+        self.verbose = False
+
         # Set up state variables for current race
         self.new_data = new_data
         self.existing_data = existing_data
@@ -19,7 +21,7 @@ class FixerDistance(Fixer):
         for key, arg in kwargs.items():
             setattr(self, key, arg)
 
-            self.set_race_conditions()
+        self.set_race_conditions()
 
         # Check whether db has off turf and off turf dist change flag set
         self.off_turf_dist_change = self.consolidated_db.get_value('off_turf_dist_change',
@@ -36,13 +38,15 @@ class FixerDistance(Fixer):
 
         # Look for a potential distance change in the race conditions and report if found
         self.distance_change = self.get_distance_change()
-        if self.verbose: print(f'Race conditions distance change: {self.distance_change}')
+        if self.verbose: print(f'\nRace conditions distance change: {self.distance_change}')
 
         # Ask whether to update the distance
         # Will be done interactively if self.verbose == True; else automatically based on recommend_updates
-        self.recommend_updates = self.new_data == self.distance_change
+        self.recommend_updates = False if self.distance_change is None else self.new_data == self.distance_change
+        self.recommend_off_turf_flag_update = self.recommend_updates or (self.distance_change == self.existing_data and self.off_turf_flag != 1)
+        self.recommend_off_turf_dist_change_flag_update = self.recommend_updates or (self.distance_change == self.existing_data and self.off_turf_dist_change != 1)
         if self.verbose:
-            print(f'\nRecommend updating to new data' if self.recommend_updates else f'\nNo update recommended')
+            print(f'\nRecommend updating to new data' if self.recommend_updates or self.recommend_off_turf_flag_update or self.recommend_off_turf_dist_change_flag_update else f'\nNo update recommended')
             if not self.recommend_updates:
                 input('Press enter to continue')
             if self.recommend_updates:
@@ -52,7 +56,7 @@ class FixerDistance(Fixer):
                 else:
                     print('No update made')
                     input('Press enter to continue')
-
+            if self.recommend_off_turf_flag_update or self.recommend_off_turf_dist_change_flag_update:
                 # Ask whether to update the off turf and distance change flag
                 if self.off_turf_dist_change != 1 or self.off_turf_flag != 1:
                     print(f'\nRecommend setting off turf and off turf distance change flag')
@@ -61,10 +65,12 @@ class FixerDistance(Fixer):
                         if self.off_turf_dist_change != 1 :self.update_value('off_turf_dist_change', '1')
                         if self.off_turf_flag != 1: self.update_value('off_turf', '1')
         else:
-            if self.verbose: print(f'Updating {self.current_race_id} distance')
-            self.update_value(self.column_name, self.distance_change)
-            self.update_value('off_turf_dist_change', '1')
-            self.update_value('off_turf', '1')
+            if self.recommend_updates:
+                self.update_value(self.column_name, self.distance_change)
+            if self.recommend_off_turf_dist_change_flag_update:
+                self.update_value('off_turf_dist_change', '1')
+            if self.recommend_off_turf_flag_update:
+                self.update_value('off_turf', '1')
 
         return self.discrepancy_resolved()
 
@@ -80,9 +86,6 @@ class FixerDistance(Fixer):
             return True
         else:
             return False
-
-    def update_value(self, field, value):
-        self.consolidated_db.update_race_values([field], [value], self.current_race_id_sql)
 
     def print_races_info(self):
         print('\n' + self.current_race_id)
@@ -100,27 +103,6 @@ class FixerDistance(Fixer):
         # Print race conditions
         print(f'\nSource race conditions:\n{self.current_source_race_conditions}')
         print(f'\nConsolidated race conditions:\n{self.current_consolidated_race_conditions}')
-
-    def set_race_conditions(self):
-        race_condition_fields = ['race_conditions_text_1', 'race_conditions_text_2', 'race_conditions_text_3',
-                                 'race_conditions_text_4', 'race_conditions_text_5', 'race_conditions_text_6']
-        source_race_condition_fields = [self.source_table_structure[key] for key in race_condition_fields if self.source_table_structure[key]]
-        if not any(source_race_condition_fields):
-            source_race_conditions = None
-        else:
-            source_race_conditions = self.source_db.get_values(source_race_condition_fields, self.current_race_id_sql)
-            text = ''
-            for item in source_race_conditions:
-                text += item if item else ''
-            source_race_conditions = text
-
-        consolidated_race_conditions = ''
-        for item in self.consolidated_db.get_values(race_condition_fields, self.current_race_id_sql):
-            if item:
-                consolidated_race_conditions += item
-
-        self.current_source_race_conditions = source_race_conditions
-        self.current_consolidated_race_conditions = consolidated_race_conditions
 
     def has_off_turf_condition(self, race_conditions):
         if race_conditions is None: return False
@@ -224,11 +206,11 @@ class FixerDistance(Fixer):
             return furlong_dist_in_yards + fractional_dist_in_yards
 
     def extract_changed_distance(self, race_conditions):
-        triggers_string = r'(if deemed inadvisable|if necessary|if deemed inadvisable|' \
-                          r'if management deems it|if the stewards consider it|if stewards consider it|' \
-                          r'if the management considers it|if management considers it|if transferred to|' \
-                          r'if this race is taken|if the race is taken|in the event this race|if this race is taken|' \
-                          r'if this race comes off)'
+        triggers_string = r'(if ?deemed ?inadvisable|if ?necessary|if ?deemed ?inadvisable|' \
+                          r'if ?management ?deems ?it|if ?the ?stewards ?consider ?it|if ?stewards ?consider ?it|' \
+                          r'if ?the ?management ?considers ?it|if ?management ?considers ?it|if ?transferred ?to|' \
+                          r'if ?this ?race ?is ?taken|if ?the ?race ?is ?taken|in ?the ?event ?this ?race|' \
+                          r'in ?the ?event ?that ?this ?race|if ?this ?race ?is ?taken|if ?this ?race ?comes ?off)'
 
         multipart_string = r'(miles?|furlongs).+?(miles?|furlongs)'
         multipart_search_string = re.compile(r'{}.+{}'.format(triggers_string, multipart_string))

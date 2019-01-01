@@ -1,5 +1,5 @@
 CONSOLIDATED_TABLE_STRUCTURE = {
-    # Format 'sql_col_name': ('sql_datatype', 'horses_consolidated_races_col', 'race_general_results_col', 'race_info col', 'horse_pps col')
+    # Format 'sql_col_name':    ('sql_datatype', '  horses_consolidated_races_col', 'race_general_results_col', 'race_info col', 'horse_pps col')
     'source_file':              ('VARCHAR(255)',    'source_file',          'source_file',      'source_file',  'source_file',),
     'track':                    ('VARCHAR(255)',    'track',                'track',            'track',        'track_code',),
     'date':                     ('DATE',            'date',                 'date',             'date',         'race_date',),
@@ -11,13 +11,14 @@ CONSOLIDATED_TABLE_STRUCTURE = {
     'temperature':              ('INT',             'temperature',          'race_temp',        None,           None,),
     'weather':                  ('VARCHAR(255)',    'weather',              'weather',          None,           None,),
 
+    'planned_distance':         ('INT',             'planned_distance',     None,               'distance',           None),
     'distance':                 ('INT',             'distance',             'distance',         'distance',     'distance',),
     'run_up_distance':          ('INT',             'run_up_distance',      'run_up_dist',      None,           None,),
     'temp_rail_distance':       ('INT',             'temp_rail_distance',   'temp_rail_dist',   None,           None),
     'about_distance_flag':      ('TINYINT',         'about_distance_flag',  'about_distance',   None,           None,),
 
     'standard_weight':          ('SMALLINT',        'standard_weight',      None,               'standard_weight',          None),
-    'three_year_old_weight':    ('SMALLINT',        'three_year_old_weight',None,               'three_year_old_weight',    None),
+    'three_year_old_weight':    ('SMALLINT',        'three_year_old_weight', None,              'three_year_old_weight',    None),
 
     'surface':                  ('VARCHAR(255)',    'surface',              'surface_new',      'surface',      'surface',),
     # 'sealed_track'
@@ -31,9 +32,13 @@ CONSOLIDATED_TABLE_STRUCTURE = {
     'breed':                    ('VARCHAR(255)',    'breed',                'breed',            'breed',        None,),
 
     'purse':                    ('INT',             'purse',                'purse',            'purse',        'race_purse',),
+    'final_purse':              ('INT',             'final_purse',          'purse',            None,           None,),
 
-    'race_type':                ('VARCHAR(255)',    'race_type',            'race_type_BRIS',   'race_type',    'race_type',),
-
+    'results_bris_race_type':   ('VARCHAR(255)',    'results_bris_race_type',   'race_type_bris',       None,           None),
+    'pps_bris_race_type':       ('VARCHAR(255)',    'pps_bris_race_type',       None,                   'race_type',    'race_type',),
+    'results_equibase_race_type':('VARCHAR(255)',   'results_equibase_race_type', 'race_type_equibase', None,           None),
+    'race_type':                ('VARCHAR(255)',    'race_type',                'race_type_equibase',   'race_type',    'race_type',),
+    
     'claiming_price_base':      ('INT',             'claiming_price_base',      'max_claim',                'claiming_price',           'highest_claim_price',),
     'optional_claiming_price':  ('INT',             'optional_claiming_price',  'optional_claiming_price',  'optional_claiming_price',  None),
 

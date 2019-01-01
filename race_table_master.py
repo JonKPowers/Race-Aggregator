@@ -26,11 +26,17 @@ race_info_data_handler = AggRacesDataHandler(source_database, 'race_info',
 race_info_adder = RaceAggregator(race_info_data_handler, consolidated_races_data_handler, include_horse=False)
 race_info_adder.add_to_consolidated_data()
 
+# Reset consolidated data handler to reflect the just-added data
+consolidated_races_data_handler.set_up_data()
+
 # Spin up data handler and aggregator for the past performances table. Fire it up.
 horse_pps_data_handler = AggRacesDataHandler(source_database, 'horse_pps',
                                              data_pack, include_horse=False, other=data_limit)
 horse_pps_adder = RaceAggregator(horse_pps_data_handler, consolidated_races_data_handler, include_horse=False)
 horse_pps_adder.add_to_consolidated_data()
+
+# Reset consolidated data handler to reflect the just-added data
+consolidated_races_data_handler.set_up_data()
 
 # Spin up data handler and aggregator for the race_results table. Fire it up.
 race_results_data_handler = AggRacesDataHandler(source_database, 'race_general_results',

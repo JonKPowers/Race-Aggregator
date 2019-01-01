@@ -38,6 +38,9 @@ class AdderDataHandler:
         if initialize_table: self.initialize_table()
 
         # Go ahead and attach data to this data handler
+        self.set_up_data()
+
+    def set_up_data(self):
         self.build_dataframe()
         self.add_race_ids()
 
