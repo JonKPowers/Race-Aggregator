@@ -40,6 +40,8 @@ race_results_adder = hp.PPRaceProcessor(race_results_db_handler, consolidated_pe
                                         consolidated_races_db_handler, include_horse=True, verbose=False)
 race_results_adder.add_to_consolidated_data()
 
+# Reset consolidated data handler to reflect the just-added data
+consolidated_performances_db_handler.set_up_data()
 
 past_performances_db_handler = hp.PPAdderDataHandler(source_database, 'horse_pps', data_pack,
                                                    include_horse=True, other=data_limit)

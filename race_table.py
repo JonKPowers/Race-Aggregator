@@ -87,8 +87,9 @@ class RaceAggregator(RaceProcessor):
 
     def add_to_consolidated_data(self):
         # Setup progress bar
-        print(f"Consolidating data from table {self.table}")
-        bar = Bar(f'Processing {self.table} data', max=len(self.db.data), suffix='%(percent).3f%% - %(index)d/%(max)d - %(eta)s secs.')
+        print(f'Consolidating data from table {self.table}')
+        bar = Bar(f'Processing {self.table} data', max=len(self.db.data),
+                  suffix='%(percent).3f%% - %(index)d/%(max)d - %(eta)s secs.')
 
         # Generate a list of the columns to check by pulling a row from the dataframe and extracting the
         # column names (this will be a pandas index since the resulting row is returned as a pandas series
@@ -99,6 +100,8 @@ class RaceAggregator(RaceProcessor):
         columns = dummy_row.index.tolist()
         del dummy_row
 
+        # We'll only be checking whether the non-race_id fields are blank, so generate a list of those
+        # non-race_id columns
         race_id_fields = ['date', 'track', 'race_num', 'horse_name'] if self.include_horse \
             else ['date', 'track', 'race_num']
         columns_to_check = [item for item in columns if item not in race_id_fields]
@@ -107,11 +110,10 @@ class RaceAggregator(RaceProcessor):
         for column in columns_to_check:
             self.unfixed_data[column] = list()
         self.unfixed_data['other'] = list()
-        try:
+        try: # Clean up unused variable
             del column
         except Exception as e:
             print(f'Issue deleting column variable: {e}')
-
 
         # Loop through each row of dataframe and process that race info
         for i in range(len(self.db.data)):
@@ -131,8 +133,6 @@ class RaceAggregator(RaceProcessor):
             try:
                 self.consolidated_db.data.loc[self.get_current_race_id(include_horse=self.include_horse)]
 
-
-
                 # Check if all the non-race_id fields are blank; if so, add our data to the entry.
                 if self.consolidated_db.fields_blank(self.get_current_race_id(), columns_to_check, number='all'):
                     self.consolidated_db.update_race_values(columns_to_check,
@@ -147,7 +147,7 @@ class RaceAggregator(RaceProcessor):
                     missing_consolidated_data = [self.db.is_blank(item) for item in self.consolidated_row_data]
 
                     # Check to make sure the row sizes match, which we expect
-                    # TO-DO TAKE THIS OUT FOR PRODUCTION
+                    # todo TAKE THIS OUT FOR PRODUCTION
                     assert len(missing_row_data) == len(missing_consolidated_data)
 
                     # If there's an entry that already has data in it, compare each data entry, see where
@@ -164,7 +164,7 @@ class RaceAggregator(RaceProcessor):
                                                         row_data.tolist(),
                                                         self.get_current_race_id(as_sql=True, include_horse=self.include_horse))
 
-        with open(f'logs/unfixed_data_{self.table} {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}.txt', 'w') as file:
+        with open(f'logs/races_unfixed_data_{self.table} {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}.txt', 'w') as file:
             for key in self.unfixed_data.keys():
                 file.write(f'\n**********\n{key}:\t')
                 for item in self.unfixed_data[key]:

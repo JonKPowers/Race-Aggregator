@@ -18,7 +18,7 @@ class PPAdderDataHandler(AdderDataHandler):
 class PPRaceProcessor(RaceProcessor):
     def add_to_consolidated_data(self):
         # Setup progress bar
-        print("Consolidating data")
+        print(f'Consolidating data from {self.table}')
         bar = Bar(f'Processing {self.table} data', max=len(self.db.data),
                   suffix='%(percent).3f%% - %(index)d/%(max)d - %(eta)s secs.')
 
@@ -31,19 +31,14 @@ class PPRaceProcessor(RaceProcessor):
         columns = dummy_row.index.tolist()
         del dummy_row
 
+        # We'll only be checking whether the non-race_id fields are blank, so generate a list of those
+        # non-race_id columns
         race_id_fields = ['date', 'track', 'race_num', 'horse_name'] if self.include_horse \
             else ['date', 'track', 'race_num']
         columns_to_check = [item for item in columns if item not in race_id_fields]
 
-        # Create dict keys for the conflict-tracking dictionary
-        issue_columns = [self.db.constants.CONSOLIDATED_TABLE_STRUCTURE[key][1] for key in self.db.constants.CONSOLIDATED_TABLE_STRUCTURE.keys()]
-        for column in issue_columns:
-            self.unfixed_data[column] = list()
-        self.unfixed_data['Other'] = list()
-        try: # Clean up unused variable
-            del column
-        except Exception as e:
-            print(f'Issue deleting column variable: {e}')
+        # Set up log for unresolved discrepancies
+        self.set_up_issue_log(columns_to_check)
 
         # Loop through each row of dataframe and process that race info
         for i in range(len(self.db.data)):
@@ -53,82 +48,105 @@ class PPRaceProcessor(RaceProcessor):
             self.set_current_info(i)
 
             # Check that race_distance is in distances_to_process list; if not, skip the entry
+            # todo Add to list of distances that can be processed.
+            # todo confirm that the distance resolver is run before adding performances to get calls right
             ###############
             # NEED TO DO SOMETHING BETTER ABOUT THIS DISTANCE CHECKING; IT REQUIRES THAT
             # THE CONSOLIDATED TABLE BE SEEDED WITH A TABLE CONTAINING DISTANCE INFO--TIGHT COUPLING
             #
-
-            try:
-                distance = self.consolidated_races_db.data.loc[self.get_current_race_id(include_horse=False), 'distance']
-            except KeyError:
-                try:
-                    distance = self.db.data.loc[self.get_current_race_id(include_horse=self.include_horse), 'distance']
-                except KeyError:
-                    # print(f'No race distance info found for {self.current_race_id}')
-                    continue
-            if distance not in self.db.constants.DISTANCES_TO_PROCESS: continue
+            distance = self.get_race_distance()
+            if distance is None or distance not in self.db.constants.DISTANCES_TO_PROCESS:
+                continue
 
             # Use the dataHandler to pull the race data for the current race and generate column list
+            # todo Seems like there has to be a better way to do this rather than generate a new distance-specific
+            # todo list for each row of the dataframe
             row_data = self.db.get_trimmed_row_data(i, distance)
             columns = row_data.index.tolist()
 
+            # Check if there is an entry in the consolidated db for this race; if not, add it.
+            if self.race_entry_exists(self.get_current_race_id(include_horse=self.include_horse)):
 
-            try:    # Check if there is an entry in the consolidated db for this race; if not, add it.
+                self.verbose_print(f'Race {self.current_race_id} found--checking for discrepancies')
 
-                # This will throw an exception if there is no entry in the consolidated table. The race info is
-                # added by the exception handler.
-                self.consolidated_db.data.loc[self.get_current_race_id(include_horse=self.include_horse)]
-                if self.verbose: print(f'Race {self.current_race_id} found--checking for discrepancies')
+                # Check if all the non-race_id fields are blank; if so, add our data to the entry.
+                if self.consolidated_db.fields_blank(self.current_race_id, columns, number='all'):
+                    self.verbose_print('All consolidated fields found blank; adding data')
+                    self.consolidated_db.update_race_values(columns,
+                                                            row_data[columns].tolist(),
+                                                            self.get_current_race_id(as_sql=True, include_horse=self.include_horse))
 
-                # If we've gotten this far, there is an entry.
-                # We'll only be checking whether the non-race_id fields are blank, so generate a list of those
-                # non-race_id columns
-                race_id_fields = ['source_file', 'date', 'track', 'race_num', 'horse_name'] if self.include_horse \
-                    else ['source_file', 'date', 'track','race_num']
-                columns_to_check = [item for item in columns if item not in race_id_fields]
-
-                # Check if the non-race_id fields are blank; if so, add our data to the entry.
-                if self.consolidated_db.fields_blank(self.current_race_id, columns_to_check, number='all'):
-                    if self.verbose: print('All consolidated fields found blank; adding data')
-                    # Add all our data (other than the race_id fields, which must already be in there)
-                    self.consolidated_db.update_race_values(columns_to_check,
-                                                            row_data[columns_to_check].tolist(),
-                                                            self.get_current_race_id(as_sql=True,
-                                                                                        include_horse=self.include_horse))
                 # If some of the non-race_id fields are not blank, we have to resolve those against our new data
                 else:   # Resolve partial data
                         # Generate boolean masks for what data is missing in consolidated and new data
-                    new_row_data = row_data[columns_to_check]
-                    consolidated_data = self.consolidated_db.data.loc[self.get_current_race_id(include_horse=self.include_horse), columns_to_check]
+                    self.new_row_data = row_data[columns]
+                    self.consolidated_row_data = self.consolidated_db.data.loc[self.get_current_race_id(include_horse=self.include_horse), columns]
 
-                    missing_row_data = [self.db.is_blank(item) for item in new_row_data]
-                    missing_consolidated_data = [self.db.is_blank(item) for item in consolidated_data]
+                    missing_row_data = [self.db.is_blank(item) for item in self.new_row_data]
+                    missing_consolidated_data = [self.db.is_blank(item) for item in self.consolidated_row_data]
 
                     # Check to make sure the row sizes match, which we expect
-                    # TO-DO TAKE THIS OUT FOR PRODUCTION
+                    # todo TAKE THIS OUT FOR PRODUCTION
                     assert len(missing_row_data) == len(missing_consolidated_data)
 
                     # If there's an entry that already has data in it, compare each data entry, see where
                     # discrepancies are, resolve them, and then update the consolidated db entry.
                     self.resolve_data(zip(missing_row_data, missing_consolidated_data),
-                                      zip(new_row_data, consolidated_data),
-                                      columns_to_check)
+                                      zip(self.new_row_data, self.consolidated_row_data),
+                                      columns)
 
-            except KeyError:    # Add the race if there isn't already an entry in the consolidated db
-                if self.verbose: print(f'Race {self.current_race_id} not found--adding to db')
+            else:    # Add the race if there isn't already an entry in the consolidated db
+                # todo Figure out a race-adding mechanism that doesn't use update. Will overwrite entries if the
+                # todo reference dataframe isn't updated after adding new entries.
+                self.verbose_print(f'Race {self.current_race_id} not found--adding to db')
+
                 self.consolidated_db.add_blank_entry(self.get_current_race_id(as_tuple=True, include_horse=self.include_horse),
                                                      include_horse=self.include_horse)
                 self.consolidated_db.update_race_values(columns,
                                                         row_data.tolist(),
                                                         self.get_current_race_id(as_sql=True, include_horse=self.include_horse))
 
-        with open(f'logs/unfixed_data_{self.table} {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}.txt', 'w') as file:
+        with open(f'logs/performances_unfixed_data_{self.table} {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}.txt', 'w') as file:
             for key in self.unfixed_data.keys():
                 file.write(f'\n**********\n{key}:\t')
                 for item in self.unfixed_data[key]:
                     file.write(f'{item}, ')
                 file.write('\n')
         bar.finish()
+
+    def race_entry_exists(self, race_id):
+        """Checks whether the consolidated dataframe has an entry for a given race"""
+        try:
+            self.consolidated_db.data.loc[race_id]  # Throws a KeyError if no entry is in the dataframe.
+            return True
+        except KeyError:
+            return False
+
+    def get_race_distance(self):
+        """Tries to find distance for a given race. Returns distance if found, otherwise None."""
+        race_id = self.get_current_race_id(include_horse=False)
+        race_id_with_horse = self.get_current_race_id(include_horse=True)
+        try:
+            distance = self.consolidated_races_db.data.loc[race_id, 'distance']
+            return distance
+        except KeyError:
+            try:
+                distance = self.db.data.loc[race_id_with_horse, 'distance']
+                return distance
+            except KeyError:
+                self.verbose_print(f'No race distance info found for {self.current_race_id}')
+                return None
+
+    def set_up_issue_log(self, columns):
+        # Create dict keys for the conflict-tracking dictionary
+        for column in columns:
+            self.unfixed_data[column] = list()
+        self.unfixed_data['other'] = list()
+        try: # Clean up unused variable
+            del column
+        except Exception as e:
+            print(f'Issue deleting column variable: {e}')
+
 
     def reconcile_discrepancy(self, new_data, existing_data, column):
         # Skip any columns that we want to ignore discrepancies for
@@ -265,7 +283,7 @@ class PPRaceProcessor(RaceProcessor):
                 fix_lead_or_beaten()
 
             else:
-                if column not in self.unfixed_data['Other']: self.unfixed_data['Other'].append(column)
+                if column not in self.unfixed_data['Other']: self.unfixed_data['other'].append(column)
                 print('Other type of discrepancy')
                 print(f'\nData mismatch: {column}. New data: {new_data}. Consolidated data: {existing_data}')
                 print('')

@@ -7,22 +7,30 @@ class FixerRaceType(Fixer):
     race_types = {
         # 'N' is almost always on results_bris
         # Format: best_descriptor: [weaker, descriptors]
-        'N': ['FNL', 'SPI'],       # other_stakes
-        'G1': ['STK'],                  # grade_1_stakes
-        'G2': ['STK', 'CHM', 'N'],                  # grade_2_stakes
-        'G3': ['STK', 'N'],                  # grade_3_stakes
-        'STK': ['N'],             # nongraded_stakes
-        'HCP': ['A'],                   # handicap
-        'SHP': ['T'],                   # starter handicap
+        'N': ['FNL', 'SPI'],            # other_stakes
+        'G1': ['STK', 'N'],             # grade_1_stakes
+        'G2': ['STK', 'CHM', 'N'],      # grade_2_stakes
+        'G3': ['STK', 'N'],             # grade_3_stakes
+        'STK': ['N'],                   # nongraded_stakes
+        'HCP': ['A', 'N'],              # handicap
+        'SHP': ['T', 'N'],              # starter handicap
         'ALW': ['A'],                   # allowance
         'AOC': ['AO'],                  # allowance_optional_claiming
         'STR': ['R'],                   # starter_allowance
-        'SOC': ['CO', 'N'],         # starter_optional_claiming
+        'SOC': ['CO', 'N'],             # starter_optional_claiming
         'CLM': ['C'],                   # claiming
         'WCL': ['C', 'N'],              # waiver_claiming
-        'MSW': ['S', 'MDN'],            # maiden_special_weight
+        'MSW': ['S', 'MDN', 'N'],       # maiden_special_weight
         'MOC': ['MO'],                  # maiden_optional_claiming
-        'MCL': ['M']                    # maiden_claiming
+        'MCL': ['M'],                   # maiden_claiming
+        'FUT': ['N'],                   # Futurity
+        'DTR': ['N'],                   # Derby Trial
+        # todo: FIX DUPE 'STR': ['N'],                   # Trials
+        'FTR': ['N'],                   # Futurity Trials
+        'FCN': ['N'],                   # Futurity Consolation
+        'INS': ['N'],                   # Invitational Stakes
+        'HDS': ['N'],                   # Handicap Stakes
+        'TRL': ['N'],                   # Trials?
 
         # SPI--Speed Index Race
         # FNL--Final
@@ -62,7 +70,7 @@ class FixerRaceType(Fixer):
             if self.best_race_descriptor is not None and self.best_race_descriptor is not self.existing_data:
                 self.update_value(self.column_name, self.best_race_descriptor)
             if self.best_race_descriptor is None:
-                input('No descriptor found. Press enter to continue')
+                pass
         return self.discrepancy_resolved()
 
     def discrepancy_resolved(self):
@@ -89,52 +97,26 @@ class FixerRaceType(Fixer):
                     return key
             print(f'\nCould not find known race type in new data ({self.new_data}) or existing data ({self.existing_data})')
             self.print_race_info()
-            input('Press enter to continue')
+            return self.secondary_race_types()
+
+    def secondary_race_types(self):
+        if self.existing_data.upper() == 'SHP' and (self.pps_bris_race_type == 'T' or self.results_bris_race_type == 'T'):
+            return 'SHP'
+        else:
             return None
 
     def print_discrepancy_table(self):
-        results_bris_race_type = self.consolidated_db.get_value('results_bris_race_type', self.current_race_id_sql)
-        results_equibase_race_type = self.consolidated_db.get_value('results_equibase_race_type', self.current_race_id_sql)
-        pps_bris_race_type = self.consolidated_db.get_value('pps_bris_race_type', self.current_race_id_sql)
+        self.results_bris_race_type = self.consolidated_db.get_value('results_bris_race_type', self.current_race_id_sql)
+        self.results_equibase_race_type = self.consolidated_db.get_value('results_equibase_race_type', self.current_race_id_sql)
+        self.pps_bris_race_type = self.consolidated_db.get_value('pps_bris_race_type', self.current_race_id_sql)
 
         table = PrettyTable(['field', 'New data', 'Existing data'])
         table.add_row([self.column_name, self.new_data, self.existing_data])
         print(f'{table}')
 
         table = PrettyTable(['codes', 'Results Bris', 'PPs Bris', 'Results EQB'])
-        table.add_row(['', results_bris_race_type, pps_bris_race_type, results_equibase_race_type])
+        table.add_row(['', self.results_bris_race_type, self.pps_bris_race_type, self.results_equibase_race_type])
         print(f'\n {table}')
 
     def get_type_from_conditions(self, race_conditions):
         pass
-
-
-
-    # def fix_race_type():
-    #     # todo Change to equibase race types, which are more descriptive and varied; prefer those over race_info:
-    #     # fix_it_dict = {
-    #     #     # Format: fix_name: race_general_results_type, race_info_type, equibase_race_type, replacement_value
-    #     #     'SOC_fix': ['N', 'CO', 'SOC', 'SOC'],
-    #     #     'WCL_fix': ['N', 'C', 'WCL', 'WCL'],
-    #     #     'MDT_fix': ['S', 'N', 'MDT', 'MDT'],
-    #     #     'STR_fix': ['R', 'N', 'STR', 'STR'],
-    #     #     'HCP_fix': ['A', 'N', 'HCP', 'HCP'],
-    #     # }
-    #     # Types of mismatches:
-    #     # Race info: N. Horse PPS: C
-    #     # Race info: N. Horse PPS: CO
-    #     if (new_data in ['C', 'CO'] and existing_data == 'N') or (new_data == 'N' and existing_data in ['C', 'CO']):
-    #         race_set_as_claiming = existing_data in ['C', 'CO']
-    #         race_is_claiming_race = self.consolidated_db.data.loc[self.current_race_id, 'claiming_price_base'] != 0
-    #         if race_is_claiming_race and not race_set_as_claiming:
-    #             if self.verbose: print('\nUpdating db to mark race as claiming race')
-    #             update_to_new_data()
-    #         elif not race_is_claiming_race and race_set_as_claiming:
-    #             if self.verbose: print('\nRace incorrectly set as claiming... fixing')
-    #             update_to_new_data()
-    #     # todo Race info: N. Horse PPS: S
-    #     # todo N and A combos, S and N, R and N
-    #
-    #     else:
-    #         if self.verbose: print_mismatch(pause=True)
-    #         add_to_unfixed_data()

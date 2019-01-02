@@ -1,4 +1,5 @@
 from progress.bar import Bar
+import re
 
 class RaceProcessor:
     # The RaceProcessor class is intended to process the race or past performance data and aggregate it into
@@ -13,6 +14,7 @@ class RaceProcessor:
         self.table_index = self.db.constants.TABLE_TO_INDEX_MAPPINGS[self.table]
 
         self.verbose = verbose
+        self.verbose_print = print if verbose else lambda *args, **kwargs: None
 
         # Variable to control whether horse information is part of the source table
         self.include_horse = include_horse
@@ -135,11 +137,17 @@ class RaceProcessor:
         self.current_race_id = self.get_current_race_id(include_horse=self.include_horse)
 
     def get_current_race_id(self, include_horse=False, as_sql=False, as_tuple=False):
+
+        def escape_and_clean(item):
+            escaped_item = re.sub(r"(['\\])", r'\\\1', str(item))  # Escape textual backslashes and tick marks
+            cleaned_item = re.sub(u"\uFFFD", "", escaped_item)  # Fix oddball <?> character
+            return cleaned_item.strip()  # Strip off any leading or trailing whitespace
+
         if as_sql:
             race_id = f'track=\'{self.current_track}\' ' \
                       f'AND date=\'{self.current_date}\' ' \
                       f'AND race_num=\'{self.current_race_num}\''
-            if include_horse: race_id += f' AND horse_name=\'{self.current_horse}\''
+            if include_horse: race_id += f' AND horse_name=\'{escape_and_clean(self.current_horse)}\''
         elif as_tuple:
             if include_horse:
                 race_id= (str(self.current_date), str(self.current_track), str(self.current_race_num), str(self.current_horse))
@@ -149,6 +157,8 @@ class RaceProcessor:
             race_id = str(self.current_date) + str(self.current_track) + str(self.current_race_num)
             if include_horse: race_id += str(self.current_horse).upper()
         return race_id
+
+
 
     def resolve_data(self, zipped_masks, zipped_data, columns):
         # resolve_data() compares the data from the consolidated pp table to the new data to see what, if any,
