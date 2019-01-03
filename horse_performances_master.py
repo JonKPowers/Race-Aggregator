@@ -10,17 +10,17 @@ from constants.constant_horse_performances_position_distance_mappings import POS
 from constants.constant_horses_performances_lead_or_beaten_distance_mappings import LEAD_OR_BEATEN_DISTANCE_MAPPINGS
 from constants.constant_aggregated_performances_unique import UNIQUE
 
-data_pack = DataPack(CONSOLIDATED_TABLE_STRUCTURE = CONSOLIDATED_TABLE_STRUCTURE,
-                     ADDITIONAL_FIELDS = ADDITIONAL_FIELDS,
-                     TABLE_TO_INDEX_MAPPINGS = TABLE_TO_INDEX_MAPPINGS,
-                     DISTANCES_TO_PROCESS = DISTANCES_TO_PROCESS,
-                     POSITION_DISTANCE_MAPPINGS = POSITION_DISTANCE_MAPPINGS,
-                     LEAD_OR_BEATEN_DISTANCE_MAPPINGS = LEAD_OR_BEATEN_DISTANCE_MAPPINGS,
+data_pack = DataPack(CONSOLIDATED_TABLE_STRUCTURE=CONSOLIDATED_TABLE_STRUCTURE,
+                     ADDITIONAL_FIELDS=ADDITIONAL_FIELDS,
+                     TABLE_TO_INDEX_MAPPINGS=TABLE_TO_INDEX_MAPPINGS,
+                     DISTANCES_TO_PROCESS=DISTANCES_TO_PROCESS,
+                     POSITION_DISTANCE_MAPPINGS=POSITION_DISTANCE_MAPPINGS,
+                     LEAD_OR_BEATEN_DISTANCE_MAPPINGS=LEAD_OR_BEATEN_DISTANCE_MAPPINGS,
                      UNIQUE=UNIQUE)
 
 # FOR DEVELOPMENT PURPOSES: Limit the number of records we pull from the databases.
 # todo REMOVE FOR PRODUCTION
-data_limit = ''
+data_limit = 'LIMIT 5000'
 source_database = 'horses_test'
 
 # Generate the data handler for the consolidated races aggregated db
@@ -35,7 +35,7 @@ consolidated_performances_db_handler = hp.AdderDataHandler('horses_consolidated_
 
 # Build up data handlers for the data sources, spin up the aggregators, and fire them up.
 race_results_db_handler = hp.PPAdderDataHandler(source_database, 'race_horse_info', data_pack,
-                                              include_horse=True, other=data_limit)
+                                                include_horse=True, other=data_limit)
 race_results_adder = hp.PPRaceProcessor(race_results_db_handler, consolidated_performances_db_handler,
                                         consolidated_races_db_handler, include_horse=True, verbose=False)
 race_results_adder.add_to_consolidated_data()

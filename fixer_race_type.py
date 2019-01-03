@@ -1,5 +1,6 @@
 from fixer_generic import Fixer
 from prettytable import PrettyTable
+import re
 
 
 class FixerRaceType(Fixer):
@@ -16,21 +17,27 @@ class FixerRaceType(Fixer):
         'SHP': ['T', 'N'],              # starter handicap
         'ALW': ['A'],                   # allowance
         'AOC': ['AO'],                  # allowance_optional_claiming
-        'STR': ['R'],                   # starter_allowance
+        'STR': ['R', 'STA'],            # starter_allowance
         'SOC': ['CO', 'N'],             # starter_optional_claiming
         'CLM': ['C'],                   # claiming
         'WCL': ['C', 'N'],              # waiver_claiming
         'MSW': ['S', 'MDN', 'N'],       # maiden_special_weight
         'MOC': ['MO'],                  # maiden_optional_claiming
         'MCL': ['M'],                   # maiden_claiming
+        'WMC': ['WMC'],                 # waiver maiden claiming
         'FUT': ['N'],                   # Futurity
         'DTR': ['N'],                   # Derby Trial
+        'TRL': ['STR', 'N'],            # Trials
+        'DBY': ['N'],                   # QH Derby
+        'OTH': ['FTR', 'FCN', 'INS', 'HDS', 'TRL', 'SST', 'MAT', 'N'],   # Misc others
         # todo: FIX DUPE 'STR': ['N'],                   # Trials
-        'FTR': ['N'],                   # Futurity Trials
-        'FCN': ['N'],                   # Futurity Consolation
-        'INS': ['N'],                   # Invitational Stakes
-        'HDS': ['N'],                   # Handicap Stakes
-        'TRL': ['N'],                   # Trials?
+        # 'FTR': ['N'],                   # Futurity Trials
+        # 'FCN': ['N'],                   # Futurity Consolation
+        # 'INS': ['N'],                   # Invitational Stakes
+        # 'HDS': ['N'],                   # Handicap Stakes
+        # 'TRL': ['N'],                   # Trials?
+        # 'SST': ['N'],                   # Starter Stakes
+        # 'MAT': ['N'],                   # Hialeah Maturity?
 
         # SPI--Speed Index Race
         # FNL--Final
@@ -61,7 +68,7 @@ class FixerRaceType(Fixer):
             if self.best_race_descriptor is not None:
                 print(f'\nRecommended race descriptor: {self.best_race_descriptor}')
                 if self.best_race_descriptor is not self.existing_data:
-                    response = input(f'Update data to {self.best_race_descriptor}? Y/n' ).lower()
+                    response = input(f'Update data to {self.best_race_descriptor}? Y/n ').lower()
                     if response != 'n':
                         self.update_value(self.column_name, self.best_race_descriptor)
                         print(f'Data updated')
@@ -89,19 +96,41 @@ class FixerRaceType(Fixer):
             return self.existing_data
         else:
             # Search through each value set to see if only second-best values are in the test data
-            # 'N' is excluded because it spans multiple best-descriptor listings
+            # 'N', 'STR', etc. are excluded because it spans multiple best-descriptor listings
+            excluded_list = ['N', 'STR']
             for key, value in self.race_types.items():
-                if self.new_data in value and self.new_data.upper() != 'N':
+                if self.new_data in value and self.new_data.upper() not in excluded_list:
                     return key
-                elif self.existing_data in value and self.existing_data.upper() != 'N':
+                elif self.existing_data in value and self.existing_data.upper() not in excluded_list:
                     return key
-            print(f'\nCould not find known race type in new data ({self.new_data}) or existing data ({self.existing_data})')
-            self.print_race_info()
-            return self.secondary_race_types()
+            last_chance = self.secondary_race_types()
+            if last_chance != None:
+                return last_chance
+            else:
+                print(
+                    f'\nCould not find known race type in new data ({self.new_data}) or existing data ({self.existing_data})')
+                self.print_race_info()
+                return None
 
     def secondary_race_types(self):
-        if self.existing_data.upper() == 'SHP' and (self.pps_bris_race_type == 'T' or self.results_bris_race_type == 'T'):
+        """ Looks through other miscellaneous possible race type markers to try to determine a race type"""
+        # Misc. other types that are not being separately treated at this time.
+        if self.new_or_existing_data_in_group(['FTR', 'FCN', 'INS', 'HDS', 'TRL', 'SST', 'MAT']):
+            return 'OTH'
+        elif self.new_or_existing_data_in_group(['WMC', 'MCL']) and self.conditions_start_with_string('WAIVER MAIDEN CLAIMING'):
+            return 'WMC'
+        elif self.new_or_existing_data_in_group(['STR']) and self.conditions_start_with_string('TRIALS'):
+            return 'TRL'
+        elif self.new_or_existing_data_in_group(['G1', 'G2', 'G3']):
+            if self.conditions_contain_string('Grade I.'):
+                return 'G1'
+            if self.conditions_contain_string('Grade II.'):
+                return 'G2'
+            if self.conditions_contain_string('Grade III.'):
+                return 'G3'
+        elif self.existing_data.upper() == 'SHP' and (self.pps_bris_race_type == 'T' or self.results_bris_race_type == 'T'):
             return 'SHP'
+
         else:
             return None
 
@@ -116,7 +145,26 @@ class FixerRaceType(Fixer):
 
         table = PrettyTable(['codes', 'Results Bris', 'PPs Bris', 'Results EQB'])
         table.add_row(['', self.results_bris_race_type, self.pps_bris_race_type, self.results_equibase_race_type])
-        print(f'\n {table}')
+        print(f'\n{table}')
 
-    def get_type_from_conditions(self, race_conditions):
-        pass
+    def conditions_contain_string(self, string):
+        if self.current_source_race_conditions is not None and re.search(r'{}'.format(string), self.current_source_race_conditions):
+            return True
+        elif self.current_consolidated_race_conditions is not None and re.search(r'{}'.format(string), self.current_consolidated_race_conditions):
+            return True
+        else:
+            return False
+
+    def conditions_start_with_string(self, string):
+        if self.current_source_race_conditions is not None and re.match(r'{}'.format(string), self.current_source_race_conditions):
+            return True
+        elif self.current_consolidated_race_conditions is not None and re.match(r'{}'.format(string), self.current_consolidated_race_conditions):
+            return True
+        else:
+            return False
+
+    def new_or_existing_data_in_group(self, group):
+        if (self.existing_data.upper() in group or self.new_data.upper() in group):
+            return True
+        else:
+            return False

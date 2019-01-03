@@ -8,6 +8,8 @@ import pandas as pd
 import datetime
 import math
 
+from fixer_horse_name import FixerHorseName
+
 
 
 class PPAdderDataHandler(AdderDataHandler):
@@ -16,6 +18,36 @@ class PPAdderDataHandler(AdderDataHandler):
 
 
 class PPRaceProcessor(RaceProcessor):
+
+    def __init__(self, db_handler, db_consolidated_handler, db_consolidated_races_handler, include_horse=False, verbose=False):
+        self.db = db_handler
+        self.consolidated_db = db_consolidated_handler
+        self.consolidated_races_db = db_consolidated_races_handler
+
+        self.table = db_handler.table
+        self.table_index = self.db.constants.TABLE_TO_INDEX_MAPPINGS[self.table]
+
+        self.verbose = verbose
+        self.verbose_print = print if verbose else lambda *args, **kwargs: None
+
+        # Variable to control whether horse information is part of the source table
+        self.include_horse = include_horse
+
+        # State-tracking variables
+        current_race_id = None
+        current_date = None
+        current_track = None
+        current_race_num = None
+        current_horse = None
+        current_distance = None
+
+        # Set up dict to track the unresolvable issues that were found
+        self.unfixed_data = {}
+
+        self.fixers = {
+            'horse_name': FixerHorseName('horse_name', self.db, self.consolidated_db)
+        }
+
     def add_to_consolidated_data(self):
         # Setup progress bar
         print(f'Consolidating data from {self.table}')
@@ -27,17 +59,10 @@ class PPRaceProcessor(RaceProcessor):
         # with the column names serving as the index). Then we strip off the non-race_id columns from that list
         # and set up the issue-tracking dictionary.
 
-        dummy_row = self.db.data.iloc[0]
-        columns = dummy_row.index.tolist()
-        del dummy_row
-
-        # We'll only be checking whether the non-race_id fields are blank, so generate a list of those
-        # non-race_id columns
-        race_id_fields = ['date', 'track', 'race_num', 'horse_name'] if self.include_horse \
-            else ['date', 'track', 'race_num']
-        columns_to_check = [item for item in columns if item not in race_id_fields]
-
         # Set up log for unresolved discrepancies
+        columns = self.consolidated_db.constants.CONSOLIDATED_TABLE_STRUCTURE.keys()
+        race_id_fields = ['date', 'track', 'race_num']
+        columns_to_check = [item for item in columns if item not in race_id_fields]
         self.set_up_issue_log(columns_to_check)
 
         # Loop through each row of dataframe and process that race info
@@ -153,6 +178,9 @@ class PPRaceProcessor(RaceProcessor):
         keys_to_ignore = []
         if column in keys_to_ignore: return
 
+        def add_to_unfixed_data():
+            self.unfixed_data[column].append(self.current_race_id)
+
         def distances():
             # If we find a discrepancy in the distances, delete the race and note the race_id in the tracking
             # dictionary. There probably isn't a simple way to resolve these discrepancies without manually going
@@ -237,41 +265,37 @@ class PPRaceProcessor(RaceProcessor):
             if column == 'distance':
                 # print(f'Discrepancy is in {column} column.');
                 self.unfixed_data['distance'].append(self.current_race_id)
-            elif column == 'source_file':
-                self.unfixed_data['source_file'].append(self.current_race_id)
-            elif column == 'race_type':
-                self.unfixed_data['race_type'].append(self.current_race_id)
-            elif column == 'days_since_last_race':
-                self.unfixed_data['days_since_last_race'].append(self.current_race_id)
-            elif column == 'favorite':
-                self.unfixed_data['favorite'].append(self.current_race_id)
-            elif column == 'horse_id':
-                self.unfixed_data['horse_id'].append(self.current_race_id)
-            elif column == 'weight':
-                self.unfixed_data['weight'].append(self.current_race_id)
-            elif column == 'state_bred':
-                self.unfixed_data['state_bred'].append(self.current_race_id)
-            elif column == 'post_position':
-                self.unfixed_data['post_position'].append(self.current_race_id)
-            elif column == 'dead_heat_finish':
-                self.unfixed_data['dead_heat_finish'].append(self.current_race_id)
-
+            elif column == 'horse_name':
+                result = self.fixers[column].fix_discrepancy(new_data, existing_data,
+                                                             race_id=self.current_race_id,
+                                                             race_id_sql=self.get_current_race_id(as_sql=True),
+                                                             consolidated_races_db=self.consolidated_races_db)
+                if result is None:
+                    add_to_unfixed_data()
+            elif column == 'source_file': add_to_unfixed_data()
+            elif column == 'race_type': add_to_unfixed_data()
+            elif column == 'days_since_last_race': add_to_unfixed_data()
+            elif column == 'favorite': add_to_unfixed_data()
+            elif column == 'horse_id': add_to_unfixed_data()
+            elif column == 'weight': add_to_unfixed_data()
+            elif column == 'state_bred': add_to_unfixed_data()
+            elif column == 'post_position': add_to_unfixed_data()
+            elif column == 'dead_heat_finish': add_to_unfixed_data()
             elif column in ['position_0', 'position_330', 'position_440', 'position_660', 'position_880',
                             'position_990', 'position_1100', 'position_1210', 'position_1320', 'position_1430',
                             'position_1540', 'position_1610', 'position_1650', 'position_1760', 'position_1830',
-                            'position_1870', 'position_1980']:
-                self.unfixed_data[column].append(self.current_race_id)
+                            'position_1870', 'position_1980']: add_to_unfixed_data()
 
             elif column in ['equip_blinkers', 'equip_front_bandages', 'equip_bar_shoe', 'equip_no_shoes',
-                            'meds_bute', 'equip_screens', 'meds_lasix']:
-                self.unfixed_data[column].append(self.current_race_id)
+                            'meds_bute', 'equip_screens', 'meds_lasix']: add_to_unfixed_data()
 
-            elif column in ['jockey', 'trainer']:
-                print_mismatch()
-                fix_jockey_name()
+            elif column in ['jockey', 'trainer']: add_to_unfixed_data()
+                # print_mismatch()
+                # fix_jockey_name()
             elif column in ['jockey_id', 'trainer_id']:
-                print_mismatch()
-                self.unfixed_data[column].append(self.current_race_id)
+                self.unfixed_data['dead_heat_finish'].append(self.current_race_id)
+                # print_mismatch()
+                # self.unfixed_data[column].append(self.current_race_id)
             ##########
             # Lead or beaten fields
             ##########
@@ -280,10 +304,11 @@ class PPRaceProcessor(RaceProcessor):
                             'lead_or_beaten_1320', 'lead_or_beaten_1430', 'lead_or_beaten_1540', 'lead_or_beaten_1610',
                             'lead_or_beaten_1650', 'lead_or_beaten_1760', 'lead_or_beaten_1830', 'lead_or_beaten_1870',
                             'lead_or_beaten_1980']:
-                fix_lead_or_beaten()
+                self.unfixed_data[column].append(self.current_race_id)
+                # fix_lead_or_beaten()
 
             else:
-                if column not in self.unfixed_data['Other']: self.unfixed_data['other'].append(column)
+                self.unfixed_data['other'].append(f'{column}/{self.current_race_id}')
                 print('Other type of discrepancy')
                 print(f'\nData mismatch: {column}. New data: {new_data}. Consolidated data: {existing_data}')
                 print('')
