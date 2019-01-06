@@ -58,7 +58,7 @@ POSITION_DISTANCE_MAPPINGS = {
     },
     1830: {
         'position_0':       [None, None, 'position_start_call',         'position_gate_call'],
-        'position_440':     [None, None, 'position_1st_call',           'start_call'],
+        'position_440':     [None, None, 'position_1st_call',           'position_start_call'],
         'position_880':     [None, None, 'position_2d_call',            'position_1st_call'],
         'position_1320':    [None, None, 'position_3d_call',            'position_2d_call'],
         'position_1610':    [None, None, 'position_stretch_call',       'position_stretch_call'],

@@ -1,8 +1,7 @@
-from fixer_generic import Fixer
-from prettytable import PrettyTable
+from FixerRacesGeneric import FixerRacesGeneric
 
-
-class FixerPurse(Fixer):
+# todo make this do something
+class FixerPurse(FixerRacesGeneric):
     def fix_discrepancy(self, new_data, existing_data, race_id=None, full_info=None, **kwargs):
 
         self.verbose = False

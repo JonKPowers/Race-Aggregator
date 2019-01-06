@@ -18,7 +18,7 @@ class FixerRaceType(Fixer):
         'ALW': ['A'],                   # allowance
         'AOC': ['AO'],                  # allowance_optional_claiming
         'STR': ['R', 'STA'],            # starter_allowance
-        'SOC': ['CO', 'N'],             # starter_optional_claiming
+        'SOC': ['CO', 'N', 'OCL'],      # starter_optional_claiming
         'CLM': ['C'],                   # claiming
         'WCL': ['C', 'N'],              # waiver_claiming
         'MSW': ['S', 'MDN', 'N'],       # maiden_special_weight

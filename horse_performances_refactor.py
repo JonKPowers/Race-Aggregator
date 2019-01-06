@@ -9,6 +9,7 @@ import datetime
 import math
 
 from fixer_horse_name import FixerHorseName
+from fixer_lead_or_beaten import FixerLeadOrBeaten
 
 
 
@@ -44,8 +45,27 @@ class PPRaceProcessor(RaceProcessor):
         # Set up dict to track the unresolvable issues that were found
         self.unfixed_data = {}
 
+        # Set up discrepancy resolvers:
+        # todo use
         self.fixers = {
-            'horse_name': FixerHorseName('horse_name', self.db, self.consolidated_db)
+            'horse_name': FixerHorseName('horse_name', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_0': FixerLeadOrBeaten('lead_or_beaten_0', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_330': FixerLeadOrBeaten('lead_or_beaten_330', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_440': FixerLeadOrBeaten('lead_or_beaten_440', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_660': FixerLeadOrBeaten('lead_or_beaten_660', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_880': FixerLeadOrBeaten('lead_or_beaten_880', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_990': FixerLeadOrBeaten('lead_or_beaten_990', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_1100': FixerLeadOrBeaten('lead_or_beaten_1100', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_1210': FixerLeadOrBeaten('lead_or_beaten_1210', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_1320': FixerLeadOrBeaten('lead_or_beaten_1320', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_1430': FixerLeadOrBeaten('lead_or_beaten_1430', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_1540': FixerLeadOrBeaten('lead_or_beaten_1540', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_1610': FixerLeadOrBeaten('lead_or_beaten_1610', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_1650': FixerLeadOrBeaten('lead_or_beaten_1650', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_1760': FixerLeadOrBeaten('lead_or_beaten_1760', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_1830': FixerLeadOrBeaten('lead_or_beaten_1830', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_1870': FixerLeadOrBeaten('lead_or_beaten_1870', self.db, self.consolidated_db, self.consolidated_races_db),
+            'lead_or_beaten_1980': FixerLeadOrBeaten('lead_or_beaten_1980', self.db, self.consolidated_db, self.consolidated_races_db),
         }
 
     def add_to_consolidated_data(self):
@@ -133,7 +153,7 @@ class PPRaceProcessor(RaceProcessor):
 
         with open(f'logs/performances_unfixed_data_{self.table} {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}.txt', 'w') as file:
             for key in self.unfixed_data.keys():
-                file.write(f'\n**********\n{key}:\t')
+                file.write(f'\n**********\n{key} ({len(self.unfixed_data[key])}):\t')
                 for item in self.unfixed_data[key]:
                     file.write(f'{item}, ')
                 file.write('\n')
@@ -192,59 +212,7 @@ class PPRaceProcessor(RaceProcessor):
             print(f'\nData mismatch{self.current_race_id}: {column}. New data: {new_data}. Consolidated data: {existing_data}')
             if pause: input("Press enter to continue")
 
-        def get_precision(num):
-            max_digits = 14
-            int_part = int(abs(num))
-            magnitude = 1 if int_part == 0 else int(math.log10(int_part) + 1)
-            fractional_part = abs(num) - int_part
-            multiplier = 10 ** (max_digits - magnitude)
-            fractional_digits = multiplier + int(multiplier * fractional_part + 0.5)
-            while fractional_digits % 10 == 0:
-                fractional_digits /= 10
-            return int(math.log10(fractional_digits))
 
-        def find_highest_precision():
-            # Returns the data item with the highest prevision, e.g., 1.43 is more precise than 1.
-            # In the event of a tie in the precision, the existing data will be returned.
-            # todo do something better when the precision matches but the values do not
-
-            return new_data if get_precision(new_data) > get_precision(existing_data) else existing_data
-
-        def fix_lead_or_beaten():
-            # If the current data is zero, use the new data if it isn't also zero
-            if existing_data == 0 and new_data != 0:
-                self.consolidated_db.update_race_values([column], [new_data], self.get_current_race_id(as_sql=True))
-                if self.verbose: print(f'\nUsing new data for {column}. New data: {new_data}. Consolidated data: {existing_data}')
-
-            # If they have the same precision but don't match, pick the one that's least "round" or keep existing data
-            # if they are within 1 of each other
-            elif (get_precision(new_data) == get_precision(existing_data) and new_data != existing_data):
-                # If new data is round and existing data isn't, keep the existing data
-                if (new_data % 1) % 0.5 == 0 and (existing_data % 1) % 0.5 != 0:
-                    if self.verbose: print(f'Using least round data: {existing_data}. New data: {new_data}. Consolidated data: {existing_data}')
-                    self.unfixed_data[column].append(self.current_race_id)
-                # if existing data is round and new data isn't, use the new data if it's within one; otherwise
-                # keep the existing data and note the discrepancy in the log
-                elif (new_data % 1) % 0.5 != 0 and (existing_data % 1) % 0.5 == 0:
-                    if abs(new_data - existing_data) < 1:
-                        if self.verbose: print(f'Using least round data: {new_data}. New data: {new_data}. Consolidated data: {existing_data}')
-                        self.consolidated_db.update_race_values([column], [new_data],
-                                                                self.get_current_race_id(as_sql=True))
-                    else:
-                        if self.verbose: print(f'Data too far apart. New data: {new_data}. Consolidated data: {existing_data}')
-                        self.unfixed_data[column].append(self.current_race_id)
-
-            # If they're within 1 of eachoter (i.e., (abs(x- y) <= 1), pick the one with the highest precision. Need to address when they are within 1 of each other and have the same precision
-            elif abs(new_data - existing_data) < 1:
-                best_value = find_highest_precision()
-                self.consolidated_db.update_race_values([column], [best_value], self.get_current_race_id(as_sql=True))
-                if self.verbose: print(f'\nUsing most precise value: {best_value} for {column}. New data: {new_data}. Consolidated data: {existing_data}')
-
-            else:
-                if self.verbose: print('Couldn\'t fix lead/beaten discrepancy:')
-                if self.verbose: print_mismatch()
-                self.unfixed_data[column].append(self.current_race_id)
-            # todo Maybe add special handling if one of the values is zero and they aren't within 1 of each other
 
         def fix_jockey_name():
             # Most of these issues involve the name being truncated or abbreviated. This method will prefer
@@ -261,16 +229,22 @@ class PPRaceProcessor(RaceProcessor):
 
 
         try:
+            fixer_kwargs = {
+                'current_race_id_sql' : self.get_current_race_id(as_sql=True),
+                'current_race_id_sql_horse': self.get_current_race_id(as_sql=True, include_horse=True),
+                'source_row_data': self.new_row_data,
+                'consolidated_row_data': self.consolidated_row_data,
+            }
+
             # Run the appropriate discrepancy resolver depending on the column involved.
             if column == 'distance':
                 # print(f'Discrepancy is in {column} column.');
                 self.unfixed_data['distance'].append(self.current_race_id)
             elif column == 'horse_name':
-                result = self.fixers[column].fix_discrepancy(new_data, existing_data,
-                                                             race_id=self.current_race_id,
-                                                             race_id_sql=self.get_current_race_id(as_sql=True),
-                                                             consolidated_races_db=self.consolidated_races_db)
-                if result is None:
+                discrepancy_resolved = self.fixers[column].fix_discrepancy(new_data, existing_data,
+                                                                           race_id=self.current_race_id,
+                                                                           **fixer_kwargs)
+                if not discrepancy_resolved:
                     add_to_unfixed_data()
             elif column == 'source_file': add_to_unfixed_data()
             elif column == 'race_type': add_to_unfixed_data()
@@ -287,7 +261,9 @@ class PPRaceProcessor(RaceProcessor):
                             'position_1870', 'position_1980']: add_to_unfixed_data()
 
             elif column in ['equip_blinkers', 'equip_front_bandages', 'equip_bar_shoe', 'equip_no_shoes',
-                            'meds_bute', 'equip_screens', 'meds_lasix']: add_to_unfixed_data()
+                            'meds_bute', 'equip_screens', 'meds_lasix', 'equip_cheek_piece',
+                            'equip_mud_calks', 'meds_adjunct_bleeder', 'equip_no_whip',
+                            'equip_shields', 'equip_goggles']: add_to_unfixed_data()
 
             elif column in ['jockey', 'trainer']: add_to_unfixed_data()
                 # print_mismatch()
@@ -304,9 +280,11 @@ class PPRaceProcessor(RaceProcessor):
                             'lead_or_beaten_1320', 'lead_or_beaten_1430', 'lead_or_beaten_1540', 'lead_or_beaten_1610',
                             'lead_or_beaten_1650', 'lead_or_beaten_1760', 'lead_or_beaten_1830', 'lead_or_beaten_1870',
                             'lead_or_beaten_1980']:
-                self.unfixed_data[column].append(self.current_race_id)
-                # fix_lead_or_beaten()
-
+                discrepancy_resolved = self.fixers[column].fix_discrepancy(new_data, existing_data,
+                                                                           race_id=self.current_race_id,
+                                                                           **fixer_kwargs)
+                if not discrepancy_resolved:
+                    add_to_unfixed_data()
             else:
                 self.unfixed_data['other'].append(f'{column}/{self.current_race_id}')
                 print('Other type of discrepancy')
