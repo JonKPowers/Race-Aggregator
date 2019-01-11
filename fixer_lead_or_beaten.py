@@ -7,7 +7,7 @@ from prettytable import PrettyTable
 class FixerLeadOrBeaten(FixerPerformancesGeneric):
     def fix_discrepancy(self, new_data, existing_data, race_id=None, full_info=None, **kwargs):
 
-        self.verbose = True
+        self.verbose = False
 
         # Set up state variables for current race
 
@@ -25,16 +25,34 @@ class FixerLeadOrBeaten(FixerPerformancesGeneric):
 
         self.set_race_conditions()
 
+        self.best_value = self.find_best_value()
+
         if self.verbose:
             self.print_race_info()
+            if self.best_value:
+                print(f'\nRecommended value to use: {self.best_value}')
+                response = input(f'Use recommended value ({self.best_value})? Y/n ').lower()
+                if response != 'n' and self.best_value != self.existing_data:
+                    self.update_value(self.column_name, self.best_value)
+                    print(f'Value updated.')
+            else:
+                print(f'\nCould not resolved discrepancy--no change recommendation')
             input('Press enter to continue')
         else:
-            pass
+            if self.best_value and self.best_value != self.existing_data:
+                self.update_value(self.column_name, self.best_value)
+            elif self.best_value is None and abs(self.new_data - self.existing_data) > 0.11:
+                # Not reviewing very minor discrepancies at this point...
+                self.print_race_info()
+                input('Press enter to continue')
 
         return self.discrepancy_resolved()
 
     def discrepancy_resolved(self):
-        return False
+        if self.best_value is None:
+            return False
+        else:
+            return True
 
     def print_discrepancy_table(self):
 
@@ -68,7 +86,36 @@ class FixerLeadOrBeaten(FixerPerformancesGeneric):
         print(f'\n{table}')
 
     def find_best_value(self):
-        pass
+        """ Tries to find a best value for the lead_or_beaten mismatch.
+
+            Generally prefers more precise values over less precise values and non-round values over round ones. If
+            the two values being considered are different by more than one, we assume there's a data error, and
+            get_best_value() will not provide a resolution for the discrepancy.
+
+        """
+        # If the values differ by more than one, there's an issue.
+        if abs(self.existing_data - self.new_data > 1):
+            return None
+
+        # If one value is more precise than the other, use that one.
+        new_data_precision = self.get_precision(self.new_data)
+        existing_data_precision = self.get_precision(self.existing_data)
+        if new_data_precision > existing_data_precision:
+            return self.new_data
+        elif existing_data_precision > new_data_precision:
+            return self.existing_data
+
+        # If one value is round and the other is non-round, use the non-round value
+        new_data_round = self.is_round(self.new_data)
+        existing_data_round = self.is_round(self.existing_data)
+        if new_data_round and not existing_data_round:
+            return self.existing_data
+        elif existing_data_round and not new_data_round:
+            return self.new_data
+
+        # If they are the same precision and both are round or both are nonround, we'll assume there is a data
+        # error and no resolution is found.
+        return None
 
     def get_precision(self, num):
         max_digits = 14
@@ -81,52 +128,9 @@ class FixerLeadOrBeaten(FixerPerformancesGeneric):
             fractional_digits /= 10
         return int(math.log10(fractional_digits))
 
-    def find_highest_precision(self):
-        # Returns the data item with the highest prevision, e.g., 1.43 is more precise than 1.
-        # In the event of a tie in the precision, the existing data will be returned.
-        # todo do something better when the precision matches but the values do not
-
-        precision_new_data = self.get_precision(self.new_data)
-        precision_existing_data = self.get_precision(self.existing_data)
-
-        return self.new_data if precision_new_data > precision_existing_data else self.existing_data
-
-    def fix_lead_or_beaten(self):
-        # If the current data is zero, use the new data if it isn't also zero
-        if self.existing_data == 0 and self.new_data != 0:
-            self.consolidated_db.update_race_values([self.column_name], [self.new_data], self.current_race_id_sql_horse)
-            if self.verbose: print(
-                f'\nUsing new data for {self.column_name}. New data: {self.new_data}. Consolidated data: {self.existing_data}')
-
-        # If they have the same precision but don't match, pick the one that's least "round" or keep existing data
-        # if they are within 1 of each other
-        elif (self.get_precision(self.new_data) == self.get_precision(self.existing_data) and self.new_data != self.existing_data):
-            # If new data is round and existing data isn't, keep the existing data
-            if (self.new_data % 1) % 0.5 == 0 and (self.existing_data % 1) % 0.5 != 0:
-                if self.verbose: print(
-                    f'Using least round data: {self.existing_data}. New data: {self.new_data}. Consolidated data: {self.existing_data}')
-                self.unfixed_data[self.column_name].append(self.current_race_id)
-            # if existing data is round and new data isn't, use the new data if it's within one; otherwise
-            # keep the existing data and note the discrepancy in the log
-            elif (self.new_data % 1) % 0.5 != 0 and (self.existing_data % 1) % 0.5 == 0:
-                if abs(self.new_data - self.existing_data) < 1:
-                    if self.verbose: print(
-                        f'Using least round data: {self.new_data}. New data: {self.new_data}. Consolidated data: {self.existing_data}')
-                    self.consolidated_db.update_race_values([self.column_name], [self.new_data],
-                                                            self.get_current_race_id(as_sql=True))
-                else:
-                    if self.verbose: print(f'Data too far apart. New data: {self.new_data}. Consolidated data: {self.existing_data}')
-                    self.unfixed_data[self.column_name].append(self.current_race_id)
-
-        # If they're within 1 of eachoter (i.e., (abs(x- y) <= 1), pick the one with the highest precision.
-        # Need to address when they are within 1 of each other and have the same precision
-        elif abs(self.new_data - self.existing_data) < 1:
-            best_value = self.find_highest_precision()
-            self.consolidated_db.update_race_values([self.column_name], [best_value], self.get_current_race_id(as_sql=True))
-            if self.verbose: print(
-                f'\nUsing most precise value: {best_value} for {self.column_name}. New data: {self.new_data}. Consolidated data: {self.existing_data}')
-
+    def is_round(self, num):
+        if (num % 1) % 0.5 == 0:
+            return True
         else:
-            if self.verbose: print('Couldn\'t fix lead/beaten discrepancy:')
-            self.unfixed_data[self.column_name].append(self.current_race_id)
-        # todo Maybe add special handling if one of the values is zero and they aren't within 1 of each other
+            return False
+

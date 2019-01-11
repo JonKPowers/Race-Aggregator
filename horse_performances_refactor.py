@@ -10,6 +10,7 @@ import math
 
 from fixer_horse_name import FixerHorseName
 from fixer_lead_or_beaten import FixerLeadOrBeaten
+from fixer_days_since_last import FixerDaysSinceLastRace
 
 
 
@@ -66,6 +67,7 @@ class PPRaceProcessor(RaceProcessor):
             'lead_or_beaten_1830': FixerLeadOrBeaten('lead_or_beaten_1830', self.db, self.consolidated_db, self.consolidated_races_db),
             'lead_or_beaten_1870': FixerLeadOrBeaten('lead_or_beaten_1870', self.db, self.consolidated_db, self.consolidated_races_db),
             'lead_or_beaten_1980': FixerLeadOrBeaten('lead_or_beaten_1980', self.db, self.consolidated_db, self.consolidated_races_db),
+            'days_since_last_race': FixerDaysSinceLastRace('days_since_last_race', self.db, self.consolidated_db, self.consolidated_races_db)
         }
 
     def add_to_consolidated_data(self):
@@ -91,6 +93,10 @@ class PPRaceProcessor(RaceProcessor):
             bar.next()
             # Set state with current race information
             self.set_current_info(i)
+
+            # Check if the race entry is blank; if so, skip it
+            if self.race_entry_blank():
+                continue
 
             # Check that race_distance is in distances_to_process list; if not, skip the entry
             # todo Add to list of distances that can be processed.
@@ -167,6 +173,13 @@ class PPRaceProcessor(RaceProcessor):
         except KeyError:
             return False
 
+    def race_entry_blank(self):
+        # todo make this more robust--very hacky right now
+        if self.current_race_id.startswith('NoneNone'):
+            return True
+        else:
+            return False
+
     def get_race_distance(self):
         """Tries to find distance for a given race. Returns distance if found, otherwise None."""
         race_id = self.get_current_race_id(include_horse=False)
@@ -227,7 +240,6 @@ class PPRaceProcessor(RaceProcessor):
                 print(f'Keeping longest name: {new_data}. New data: {new_data}. Existing data: {existing_data}')
                 self.consolidated_db.update_race_values([column], [new_data], self.get_current_race_id(as_sql=True))
 
-
         try:
             fixer_kwargs = {
                 'current_race_id_sql' : self.get_current_race_id(as_sql=True),
@@ -246,9 +258,16 @@ class PPRaceProcessor(RaceProcessor):
                                                                            **fixer_kwargs)
                 if not discrepancy_resolved:
                     add_to_unfixed_data()
+
             elif column == 'source_file': add_to_unfixed_data()
             elif column == 'race_type': add_to_unfixed_data()
-            elif column == 'days_since_last_race': add_to_unfixed_data()
+            elif column == 'days_since_last_race':
+                discrepancy_resolved = self.fixers[column].fix_discrepancy(new_data, existing_data,
+                                                                           race_id=self.current_race_id,
+                                                                           **fixer_kwargs)
+                if not discrepancy_resolved:
+                    add_to_unfixed_data()
+
             elif column == 'favorite': add_to_unfixed_data()
             elif column == 'horse_id': add_to_unfixed_data()
             elif column == 'weight': add_to_unfixed_data()

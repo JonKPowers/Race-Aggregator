@@ -1,9 +1,9 @@
-from fixer_generic import Fixer
+from FixerRacesGeneric import FixerRacesGeneric
 from prettytable import PrettyTable
 import re
 
 
-class FixerDistance(Fixer):
+class FixerDistance(FixerRacesGeneric):
 
     def fix_discrepancy(self, new_data, existing_data, race_id=None, full_info=None, **kwargs):
 

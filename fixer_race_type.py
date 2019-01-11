@@ -1,9 +1,9 @@
-from fixer_generic import Fixer
+from FixerRacesGeneric import FixerRacesGeneric
 from prettytable import PrettyTable
 import re
 
 
-class FixerRaceType(Fixer):
+class FixerRaceType(FixerRacesGeneric):
 
     race_types = {
         # 'N' is almost always on results_bris
@@ -27,9 +27,9 @@ class FixerRaceType(Fixer):
         'WMC': ['WMC'],                 # waiver maiden claiming
         'FUT': ['N'],                   # Futurity
         'DTR': ['N'],                   # Derby Trial
-        'TRL': ['STR', 'N'],            # Trials
+        'TRL': ['STR', 'N', 'SPT'],            # Trials
         'DBY': ['N'],                   # QH Derby
-        'OTH': ['FTR', 'FCN', 'INS', 'HDS', 'TRL', 'SST', 'MAT', 'N'],   # Misc others
+        'OTH': ['FTR', 'FCN', 'INS', 'HDS', 'SST', 'MAT', 'N'],   # Misc others
         # todo: FIX DUPE 'STR': ['N'],                   # Trials
         # 'FTR': ['N'],                   # Futurity Trials
         # 'FCN': ['N'],                   # Futurity Consolation
@@ -38,6 +38,8 @@ class FixerRaceType(Fixer):
         # 'TRL': ['N'],                   # Trials?
         # 'SST': ['N'],                   # Starter Stakes
         # 'MAT': ['N'],                   # Hialeah Maturity?
+        # 'MTR': [],                      # Maturity Trials?
+        # 'MDT': ['N'],                   # Maiden Trials?
 
         # SPI--Speed Index Race
         # FNL--Final
@@ -120,6 +122,8 @@ class FixerRaceType(Fixer):
         elif self.new_or_existing_data_in_group(['WMC', 'MCL']) and self.conditions_start_with_string('WAIVER MAIDEN CLAIMING'):
             return 'WMC'
         elif self.new_or_existing_data_in_group(['STR']) and self.conditions_start_with_string('TRIALS'):
+            return 'TRL'
+        elif self.conditions_start_with_string('TRIALS.'):
             return 'TRL'
         elif self.new_or_existing_data_in_group(['G1', 'G2', 'G3']):
             if self.conditions_contain_string('Grade I.'):

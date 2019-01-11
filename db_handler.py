@@ -2,7 +2,7 @@ import logging
 import MySQLdb
 import re
 
-logging.basicConfig(filename='db_handler.log', filemode='w', level=logging.INFO)
+logging.basicConfig(filename='db_handler.log', filemode='w', level=logging.DEBUG)
 
 
 class QueryDB:
@@ -159,7 +159,7 @@ class QueryDB:
                 cursor.execute(sql)
             except (MySQLdb.ProgrammingError, MySQLdb.IntegrityError) as e:
                 if re.search(r'Duplicate entry', repr(e)):
-                    logging.debug(f'Error adding entry: \n\t{e}')
+                    logging.debug(f'Duplicate entry: \n\t{e}')
                     logging.debug(f'\t{i+1} of {len(table_data)}: {sql}')
                 else:
                     logging.info(f'Error adding entry: \n\t{e}')
@@ -170,7 +170,6 @@ class QueryDB:
         cursor = self.connection.cursor()
         cursor.execute(query)
         self.connection.commit()
-
 
     def __init__(self, db, username='codelou', password='ABCabc123!', initialize_db=False, verbose=False):
         self.db = db

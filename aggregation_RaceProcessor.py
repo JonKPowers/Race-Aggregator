@@ -188,7 +188,7 @@ class RaceProcessor:
                 continue                                # consolidated data alone.
             elif mask[0] == False and mask[1] == True:    # If the consolidated data is missing a value that the new data
                                                         # has, then insert the new data
-                self.consolidated_db.update_race_values([column], [data[0]], self.get_current_race_id(as_sql=True))
+                self.consolidated_db.update_race_values([column], [data[0]], self.get_current_race_id(as_sql=True, include_horse=self.include_horse))
             elif mask[0] == False == mask[1]:             # If they both have data:
                 if data[0] == data[1]:                  # If the data matches, move on.
                     continue

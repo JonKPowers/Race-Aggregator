@@ -42,19 +42,22 @@ CONSOLIDATED_TABLE_STRUCTURE = {
     'claiming_price_base':      ('INT',             'claiming_price_base',      'max_claim',                'claiming_price',           'highest_claim_price',),
     'optional_claiming_price':  ('INT',             'optional_claiming_price',  'optional_claiming_price',  'optional_claiming_price',  None),
 
-    'time_440': ('FLOAT',   'time_440',     None, None, None,),        # 2 furlongs
-    'time_660': ('FLOAT',   'time_660',     None, None, None,),        # 3_furlongs
-    'time_880': ('FLOAT',   'time_880',     None, None, None,),        # 4 furlongs
-    'time_1100': ('FLOAT',  'time_1100',    None, None, None,),       # 5 furlongs
-    'time_1210': ('FLOAT',  'time_1210',    None, None, None,),       # 5.5 furlongs
-    'time_1320': ('FLOAT',  'time_1320',    None, None, None,),       # 6 furlongs
-    'time_1430': ('FLOAT',  'time_1430',    None, None, None,),       # 6.5 furlongs
-    'time_1540': ('FLOAT',  'time_1540',    None, None, None,),       # 7 furlongs
-    'time_1650': ('FLOAT',  'time_1650',    None, None, None,),       # 7.5 furlongs
-    'time_1760': ('FLOAT',  'time_1760',    None, None, None,),       # 1 mile
-    'time_1830': ('FLOAT',  'time_1830',    None, None, None,),       # 1 mile, 70 yards
-    'time_1870': ('FLOAT',  'time_1870',    None, None, None,),       # 1 1/8 miles (9 furlongs)
-    'time_1980': ('FLOAT',  'time_1980',    None, None, None,),       # 1 1/4 miles (10 furlongs)
+    'time_440': ('FLOAT',   'time_440',     None, None, '2f_fraction'),     # 2 furlongs
+    'time_660': ('FLOAT',   'time_660',     None, None, '3f_fraction'),     # 3_furlongs
+    'time_880': ('FLOAT',   'time_880',     None, None, '4f_fraction'),     # 4 furlongs
+    'time_1100': ('FLOAT',  'time_1100',    None, None, '5f_fraction'),     # 5 furlongs
+    'time_1210': ('FLOAT',  'time_1210',    None, None, None,),             # 5.5 furlongs
+    'time_1320': ('FLOAT',  'time_1320',    None, None, '6f_fraction'),     # 6 furlongs
+    'time_1430': ('FLOAT',  'time_1430',    None, None, None,),             # 6.5 furlongs
+    'time_1540': ('FLOAT',  'time_1540',    None, None, '7f_fraction'),     # 7 furlongs
+    'time_1650': ('FLOAT',  'time_1650',    None, None, None,),             # 7.5 furlongs
+    'time_1760': ('FLOAT',  'time_1760',    None, None, '8f_fraction'),     # 1 mile
+    'time_1830': ('FLOAT',  'time_1830',    None, None, None,),             # 1 mile, 70 yards
+    'time_1870': ('FLOAT',  'time_1870',    None, None, None,),             # 1 1/8 miles (9 furlongs)
+    # 'time_1980': ('FLOAT',  'time_1980',    None, None, '10f_fraction'),    # 1 1/4 miles (10 furlongs)
+    # 'time_2640': ('FLOAT',  'time_2640',    None, None, '12f_fraction'),    # 1 1/2 miles (12 furlongs)
+    # 'time_3080': ('FLOAT',  'time_3080',    None, None, '14f_fraction'),    # 1 3/4 miles (14 furlongs)
+    # 'time_3520': ('FLOAT',  'time_3520',    None, None, '16f_fraction'),    # 2 miles (16 furlongs)
 
 
     'allowed_age_two':      ('TINYINT', 'allowed_age_two',          'allowed_age_two',          'allowed_age_two',          'allowed_age_two',),

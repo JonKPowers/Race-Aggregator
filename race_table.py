@@ -32,6 +32,9 @@ class AggRacesDataHandler(AdderDataHandler):
         table_index = self.constants.TABLE_TO_INDEX_MAPPINGS[self.table]
         field_dict = {key: value[table_index] for key, value in self.constants.CONSOLIDATED_TABLE_STRUCTURE.items()
                       if value[table_index]}
+        extra_fields = {key: value[table_index] for key, value in self.constants.ADDITIONAL_FIELDS.items()
+                        if value[table_index]}
+        field_dict.update(extra_fields)
         fields = [(key, value) for key, value in field_dict.items()]
         source_fields = [item for _, item in fields]
         consolidated_fields = [item for item, _ in fields]
@@ -41,6 +44,31 @@ class AggRacesDataHandler(AdderDataHandler):
         sql_query = self.db.generate_query(self.table, source_fields, other=self.other)
         db_data = self.db.query_db(sql_query)
         self.data = pd.DataFrame(db_data, columns=consolidated_fields)
+
+    def add_times(self, row_data):
+        """ Puts the correct time values in the distance_time column of the row_data.
+
+            For horse_pps, this is already done in the source data, but for race_general results, we have to
+            consulte the fraction-distance field to determine what distance_time column to modify. For both table
+            types, we have to set the final time distance_time column manually.
+        """
+        final_distance = row_data['distance']
+
+        if self.table == 'horse_pps':
+            final_time = row_data['time_finish']
+            row_data['time_' + str(final_distance)] = final_time
+        elif self.table == 'race_general_results':
+            fractions = ['fraction_1', 'fraction_2', 'fraction_3', 'fraction_4', 'fraction_5']
+            final_time = row_data['time_finish']
+            for fraction in fractions:
+                fraction_distance = row_data['distance_' + fraction]
+                fraction_time = row_data['time_' + fraction]
+                row_data[str(fraction_distance) + '_time'] = fraction_time
+            row_data['time_' + str(final_distance)] = final_time
+        else:
+            raise NotImplementedError(f'Table type {self.table} not implemented in add_times()')
+
+        return row_data
 
 
 class RaceAggregator(RaceProcessor):
@@ -122,15 +150,20 @@ class RaceAggregator(RaceProcessor):
             # Set state with current race information
             self.set_current_info(i)
 
-            # Pull the data for the row we're working on, which will be needed either to update/checl
+            # Check if the race entry is blank; if so, skip it.
+            if self.race_entry_blank():
+                continue
+
+            # Pull the data for the row we're working on, which will be needed either to update/check
             # values for the existing data or to add a new entry to the table..
             row_data = self.db.data.iloc[i]
+            self.db.add_times(row_data)             # Adds fractional time information
 
             # Check if race is in the consolidated db; if not, add the race to the db.
             # The race is added in exception handling, which will be triggered if the race lookup
             # in the consolidated dataframe fails.
 
-            try:
+            if self.race_entry_exists(self.current_race_id):
                 self.consolidated_db.data.loc[self.get_current_race_id(include_horse=self.include_horse)]
 
                 # Check if all the non-race_id fields are blank; if so, add our data to the entry.
@@ -157,7 +190,7 @@ class RaceAggregator(RaceProcessor):
                                       columns_to_check)
                 # If some of the non-race_id fields are not blank, we have to resolve those against our new data
 
-            except KeyError:    # Add the race if there isn't already an entry in the consolidated db
+            else:    # Add the race if there isn't already an entry in the consolidated db
                 self.consolidated_db.add_blank_entry(self.get_current_race_id(as_tuple=True, include_horse=self.include_horse),
                                                      include_horse=self.include_horse)
                 self.consolidated_db.update_race_values(columns,
@@ -172,6 +205,21 @@ class RaceAggregator(RaceProcessor):
                 file.write('\n')
 
         bar.finish()
+
+    def race_entry_exists(self, race_id):
+        """Checks whether the consolidated dataframe has an entry for a given race"""
+        try:
+            self.consolidated_db.data.loc[race_id]  # Throws a KeyError if no entry is in the dataframe.
+            return True
+        except KeyError:
+            return False
+
+    def race_entry_blank(self):
+        # todo make this more robust--very hacky right now
+        if self.current_race_id.startswith('NoneNone'):
+            return True
+        else:
+            return False
 
     def reconcile_discrepancy(self, new_data, existing_data, column):
         # Skip any columns that we want to ignore discrepancies for

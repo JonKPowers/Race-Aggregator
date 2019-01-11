@@ -7,7 +7,7 @@ class FixerHorseName(FixerPerformancesGeneric):
 
     def fix_discrepancy(self, new_data, existing_data, race_id=None, full_info=None, **kwargs):
 
-        self.verbose = True
+        self.verbose = False
 
         # Set up state variables for current race
 

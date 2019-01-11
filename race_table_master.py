@@ -4,15 +4,17 @@ from race_table import RaceAggregator
 # Constants
 from datapack import DataPack
 from constants.constant_aggregated_races_table_structure import CONSOLIDATED_TABLE_STRUCTURE
+from constants.constant_aggregated_races_additional_fields import ADDITIONAL_FIELDS
 from constants.constant_aggregated_races_table_to_index_mappings import TABLE_TO_INDEX_MAPPINGS
 from constants.constant_aggregated_races_unique import UNIQUE
 data_pack = DataPack(CONSOLIDATED_TABLE_STRUCTURE=CONSOLIDATED_TABLE_STRUCTURE,
+                     ADDITIONAL_FIELDS=ADDITIONAL_FIELDS,
                      TABLE_TO_INDEX_MAPPINGS=TABLE_TO_INDEX_MAPPINGS,
                      UNIQUE=UNIQUE)
 
 # SQL results limit to speed up debugging cycle during development
 # todo DELETE FOR PRODUCTION
-data_limit = ''
+data_limit = 'LIMIT 5000'
 source_database = 'horses_test'
 
 # Spin up the data handlers for the race aggregation tables

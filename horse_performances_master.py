@@ -20,7 +20,7 @@ data_pack = DataPack(CONSOLIDATED_TABLE_STRUCTURE=CONSOLIDATED_TABLE_STRUCTURE,
 
 # FOR DEVELOPMENT PURPOSES: Limit the number of records we pull from the databases.
 # todo REMOVE FOR PRODUCTION
-data_limit = 'LIMIT 5000'
+data_limit = ''
 source_database = 'horses_test'
 
 # Generate the data handler for the consolidated races aggregated db
