@@ -26,7 +26,7 @@ consolidated_races_data_handler = AggRacesDataHandler('horses_consolidated_races
 race_info_data_handler = AggRacesDataHandler(source_database, 'race_info',
                                              data_pack, include_horse=False, other=data_limit)
 race_info_adder = RaceAggregator(race_info_data_handler, consolidated_races_data_handler, include_horse=False)
-race_info_adder.add_to_consolidated_data()
+# race_info_adder.add_to_consolidated_data()
 
 # Reset consolidated data handler to reflect the just-added data
 consolidated_races_data_handler.set_up_data()

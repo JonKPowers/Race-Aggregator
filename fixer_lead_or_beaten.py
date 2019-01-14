@@ -43,8 +43,9 @@ class FixerLeadOrBeaten(FixerPerformancesGeneric):
                 self.update_value(self.column_name, self.best_value)
             elif self.best_value is None and abs(self.new_data - self.existing_data) > 0.11:
                 # Not reviewing very minor discrepancies at this point...
-                self.print_race_info()
-                input('Press enter to continue')
+                # self.print_race_info()
+                # input('Press enter to continue')
+                pass
 
         return self.discrepancy_resolved()
 

@@ -44,7 +44,7 @@ class FixerHorseName(FixerPerformancesGeneric):
                 self.update_value(self.column_name, self.best_name)
             elif self.best_name is None:
                 self.print_race_info()
-                input('Press enter to continue')
+                # input('Press enter to continue')
 
         return self.discrepancy_resolved()
 

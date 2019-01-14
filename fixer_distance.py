@@ -56,6 +56,7 @@ class FixerDistance(FixerRacesGeneric):
                 else:
                     print('No update made')
                     input('Press enter to continue')
+
             if self.recommend_off_turf_flag_update or self.recommend_off_turf_dist_change_flag_update:
                 # Ask whether to update the off turf and distance change flag
                 if self.off_turf_dist_change != 1 or self.off_turf_flag != 1:
@@ -104,14 +105,6 @@ class FixerDistance(FixerRacesGeneric):
         print(f'\nSource race conditions:\n{self.current_source_race_conditions}')
         print(f'\nConsolidated race conditions:\n{self.current_consolidated_race_conditions}')
 
-    def has_off_turf_condition(self, race_conditions):
-        if race_conditions is None: return False
-
-        off_turf_condition = re.search(r'\(if.+?\)', race_conditions.lower())
-        if off_turf_condition:
-            return True
-        else:
-            return False
 
     def get_distance_change(self):
         source_distance_change = None
@@ -134,8 +127,15 @@ class FixerDistance(FixerRacesGeneric):
                 print(f'Source and existing conditions show different distance changes.')
                 print(f'\tSource: {source_distance_change}\n\tConsolidated:{consolidated_distance_change}')
         elif source_distance_change is None is consolidated_distance_change:
-            if self.verbose: print(f'Distance change not found in source or consolidated')
-            return None
+            if self.verbose: print(f'Distance change not found in source or consolidated... check for distance changed flag')
+
+            # Sometimes there is an off-turf distance change without information about it in the race conditions.
+            # Check if the OTDC flag is set and, if so, use the new value as long as the value isn't from the
+            # race_info table, which only has 'Original distance' information.
+            if self.off_turf_dist_change == 1 and self.source_db.table != 'race_info':
+                return self.new_data
+            else:
+                return None
         elif source_distance_change is None:
             return consolidated_distance_change
         elif consolidated_distance_change is None:

@@ -150,7 +150,8 @@ class RaceProcessor:
             if include_horse: race_id += f' AND horse_name=\'{escape_and_clean(self.current_horse)}\''
         elif as_tuple:
             if include_horse:
-                race_id= (str(self.current_date), str(self.current_track), str(self.current_race_num), str(self.current_horse))
+                race_id = (str(self.current_date), str(self.current_track),
+                           str(self.current_race_num), str(self.current_horse))
             else:
                 race_id = (str(self.current_date), str(self.current_track), str(self.current_race_num))
         else:
